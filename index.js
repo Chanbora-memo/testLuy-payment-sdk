@@ -1,6 +1,10 @@
 import axios from "axios";
 import { getConfig } from "./config.js";
-import { validateAmount, validateCallbackUrl, validateTransactionId } from "./validation.js";
+import {
+  validateAmount,
+  validateCallbackUrl,
+  validateTransactionId,
+} from "./validation.js";
 
 /**
  * TestluyPaymentSDK - A payment processing SDK for integrating with the Testluy payment system
@@ -10,7 +14,8 @@ import { validateAmount, validateCallbackUrl, validateTransactionId } from "./va
 class TestluyPaymentSDK {
   constructor(options = {}) {
     const { clientId, secretKey, baseUrl } = getConfig(options);
-    if (!clientId || !secretKey) { // Explicitly check for clientId and secretKey
+    if (!clientId || !secretKey) {
+      // Explicitly check for clientId and secretKey
       throw new Error("Client ID and Secret Key are required.");
     }
     this.clientId = clientId;
