@@ -1,0 +1,12 @@
+# Add patterns to ignore here, one per line
+# Example:
+# *.log
+# tmp/
+
+./node_modules
+
+repomix.config.json
+sdk_codebase.xml
+repomix-output.txt
+README.md
+CHANGELOG.md
