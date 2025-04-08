@@ -1,10 +1,6 @@
 {
   "name": "testluy-payment-sdk",
-<<<<<<< HEAD
   "version": "2.0.3",
-=======
-  "version": "1.0.20",
->>>>>>> main
   "description": "SDK for TestLuy Payment Simulator",
   "main": "index.js",
   "type": "module",

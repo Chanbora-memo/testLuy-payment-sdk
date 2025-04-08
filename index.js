@@ -281,7 +281,7 @@ class TestluyPaymentSDK {
     } catch (error) {
       // Error could be from getPaymentStatus or input validation
       console.error("Error in handlePaymentCallback:", error.message);
-      // Propagate the specific error message
+      // Propagate the specific error messageread
       throw new Error(`Failed to handle payment callback: ${error.message}`);
     }
   }
