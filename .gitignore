@@ -5,3 +5,4 @@ repomix.config.json
 repomix-output-sdk.xml
 sdk_codebase.xml
 .repomixignore
+repomix-output.txt
