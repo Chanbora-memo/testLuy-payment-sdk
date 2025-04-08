@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Testluy Payment SDK
 
 [![npm version](https://badge.fury.io/js/testluy-payment-sdk.svg)](https://badge.fury.io/js/testluy-payment-sdk)
@@ -26,10 +27,16 @@ The SDK acts as a client library for the Testluy backend API. Here's the fundame
 5. **Authentication & Authorization:** The backend compares its generated signature with the one received from the SDK. If they match *and* the timestamp is recent (preventing replay attacks) *and* the associated API application subscription is active, the request is authenticated and authorized.
 6. **Response:** The backend processes the request (e.g., creates a transaction record, looks up status) and sends a JSON response back to the SDK.
 7. **SDK Response:** The SDK parses the backend response and returns the relevant data (e.g., payment URL, status object) or throws an error if the request failed.
+=======
+# Testluy Payment Simulator SDK
+
+This SDK provides easy integration with the Testluy Payment Simulator.
+>>>>>>> main
 
 ## Installation
 
 ```bash
+<<<<<<< HEAD
 npm install testluy-payment-sdk@latest axios
 # or
 yarn add testluy-payment-sdk@latest axios
@@ -309,3 +316,39 @@ Please see [CHANGELOG.md](CHANGELOG.md) for version history and notable changes.
 ## License
 
 This SDK is released under the MIT License. See the [LICENSE](LICENSE) file for details.
+=======
+npm install testluy-payment-sdk
+```
+
+## Usage
+```javascript
+const TestluyPaymentSDK = require('testluy-payment-sdk');
+const sdk = new TestluyPaymentSDK('your-client-id', 'your-secret-key', 'http://your-api-base-url');
+// Generate a payment URL
+sdk.generatePaymentUrl(20.00, 'your-application-id', 'https://your-callback-url.com')
+.then(paymentUrl => {
+console.log('Payment URL:', paymentUrl);
+})
+.catch(error => {
+console.error('Error:', error.message);
+});
+// Get payment status
+sdk.getPaymentStatus('transaction-id')
+.then(status => {
+console.log('Payment Status:', status);
+})
+.catch(error => {
+console.error('Error:', error.message);
+});
+```
+
+## API Reference
+
+### generatePaymentUrl(amount, applicationId, callbackUrl)
+
+Generates a payment URL for the given amount and application.
+
+### getPaymentStatus(transactionId)
+
+Retrieves the status of a payment for the given transaction ID.
+>>>>>>> main
