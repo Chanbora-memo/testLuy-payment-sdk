@@ -206,26 +206,24 @@ class TestluyPaymentSDK {
   async initiatePaymentFlow(amount, callbackUrl, backUrl) {
     try {
       validateAmount(amount);
-      validateCallbackUrl(callbackUrl); // Assuming backUrl is optional or validated elsewhere if needed
+      validateCallbackUrl(callbackUrl);
+      if (backUrl) {
+        validateCallbackUrl(backUrl); // Reuse URL validation for backUrl
+      }
 
-      // ***** FIX: Prepend 'api/' to the path *****
       const path = 'api/payment-simulator/generate-url';
       const body = {
         amount,
         callback_url: callbackUrl,
-        // Conditionally add back_url ONLY if it has a value,
-        // to ensure the body signed matches exactly what's sent.
-        ...(backUrl && { back_url: backUrl })
+        ...(backUrl && { back_url: backUrl }) // Only include back_url if provided
       };
+      
       const fullUrl = `${this.baseUrl}/${path}`;
-      // console.log("POST Request URL (Flow):", fullUrl); // Debugging
-      // console.log("Request Body (Flow):", JSON.stringify(body)); // Debugging
-
+      
       const response = await axios.post(
         fullUrl,
         body,
         {
-           // ***** Pass the correct path and body for signing *****
           headers: await this._getAuthHeaders('POST', path, body)
         }
       );
@@ -240,7 +238,6 @@ class TestluyPaymentSDK {
       return {
         paymentUrl: payment_url,
         transactionId: transaction_id,
-        // backUrl: backUrl, // No need to return this, it was an input
         // The handleCallback function reference remains useful
         handleCallback: this.handlePaymentCallback.bind(this)
       };
