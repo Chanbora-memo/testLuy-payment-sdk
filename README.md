@@ -428,4 +428,4 @@ try {
 
 ## Changelog
 
-Please see the project's commit history or release notes for version history and notable changes. (Assuming no separate CHANGELOG.md file exists yet).
+Please see the project's commit history or release notes for version history and notable changes.
