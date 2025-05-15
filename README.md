@@ -17,6 +17,7 @@ This SDK is designed primarily for server-side usage (e.g., within Node.js, Next
 * **Promise-based:** Uses `async/await` for clean handling of asynchronous operations.
 * **Credential Validation:** Provides a method to explicitly validate API keys and subscription status.
 * **Secure Callback Handling:** Includes a method to securely verify payment status upon callback, preventing tampering.
+* **Rate Limiting Handling:** Automatically handles rate limiting with exponential backoff and retries.
 
 ## How it Works
 
@@ -51,7 +52,15 @@ import TestluyPaymentSDK from 'testluy-payment-sdk';
 const options = {
   clientId: process.env.TESTLUY_CLIENT_ID,   // Required: Your application Client ID
   secretKey: process.env.TESTLUY_SECRET_KEY, // Required: **NEVER EXPOSE THIS IN CLIENT-SIDE CODE**
-  baseUrl: process.env.TESTLUY_BASE_URL      // Required: e.g., 'http://localhost:8000' or 'https://api.testluy.com' (NO /api suffix)
+  baseUrl: process.env.TESTLUY_BASE_URL,     // Required: e.g., 'http://localhost:8000' or 'https://api.testluy.com' (NO /api suffix)
+
+  // Optional: Configure rate limiting behavior
+  retryConfig: {
+    maxRetries: 3,              // Maximum number of retry attempts (default: 3)
+    initialDelayMs: 1000,       // Initial delay in milliseconds before first retry (default: 1000)
+    maxDelayMs: 10000,          // Maximum delay in milliseconds between retries (default: 10000)
+    backoffFactor: 2            // Factor by which to increase delay on each retry (default: 2)
+  }
 };
 
 let sdk;
@@ -402,8 +411,45 @@ SDK methods will throw JavaScript `Error` objects upon failure. These failures c
 * Authentication/Authorization errors from the backend (invalid signature, inactive key, incorrect `clientId`).
 * Processing errors on the backend (invalid transaction ID, simulation errors).
 * Configuration errors (missing keys during SDK initialization).
+* Rate limiting errors (when you've exceeded your API call limits).
 
 The `error.message` property often contains specific details returned from the backend API or from the validation library. Always wrap your SDK calls in `try...catch` blocks to handle potential errors gracefully. Log detailed errors on the server-side for debugging but provide user-friendly messages to the frontend.
+
+### Rate Limiting Errors
+
+When rate limiting is triggered, the SDK will automatically retry the request up to the configured number of times with exponential backoff. If all retries fail, it will throw an error with the `isRateLimitError` property set to `true`. The error will also include additional information:
+
+```javascript
+try {
+  const result = await sdk.initiatePayment(amount, callbackUrl);
+} catch (error) {
+  if (error.message.includes('Rate limit exceeded')) {
+    console.error('Rate limit hit:', error.message);
+
+    // Access rate limit information if available
+    if (error.rateLimitInfo) {
+      console.log('Current plan:', error.rateLimitInfo.currentPlan);
+      console.log('Limit:', error.rateLimitInfo.limit);
+      console.log('Retry after (seconds):', error.retryAfter);
+
+      // Check if there's upgrade information
+      if (error.upgradeInfo) {
+        console.log('Upgrade info:', error.upgradeInfo);
+      }
+    }
+
+    // Inform the user
+    return res.status(429).json({
+      error: 'Too many requests. Please try again later.',
+      retryAfter: error.retryAfter
+    });
+  }
+
+  // Handle other errors
+  console.error('Payment error:', error.message);
+  return res.status(500).json({ error: 'Payment processing failed' });
+}
+```
 
 ```javascript
 try {

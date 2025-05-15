@@ -1,5 +1,42 @@
 # Changelog
 
+## Version 3.1.0
+
+### Rate Limiting Support
+
+The SDK has been updated to handle rate limiting with automatic retries:
+
+- Automatic retry with exponential backoff for rate-limited requests
+- Configurable retry parameters (max retries, delays, backoff factor)
+- Detailed rate limit information in error objects
+- Support for different rate limits based on subscription tiers
+
+### How to Use
+
+1. Update your SDK dependency to version 3.1.0 or later:
+
+```bash
+npm install testluy-payment-sdk@latest
+```
+
+1. No code changes are required for basic functionality - the SDK handles rate limiting automatically.
+
+1. Optional: Configure retry behavior in the SDK options:
+
+```javascript
+const sdk = new TestluyPaymentSDK({
+  clientId: 'your_client_id',
+  secretKey: 'your_secret_key',
+  baseUrl: 'your_base_url',
+  retryConfig: {
+    maxRetries: 3,              // Default: 3
+    initialDelayMs: 1000,       // Default: 1000 (1 second)
+    maxDelayMs: 10000,          // Default: 10000 (10 seconds)
+    backoffFactor: 2            // Default: 2
+  }
+});
+```
+
 ## Version 2.0.0
 
 ### Security Enhancement: HMAC Authentication
@@ -10,7 +47,7 @@ The SDK has been updated to use HMAC-based authentication instead of Basic Authe
 - Timestamp validation to prevent replay attacks
 - More secure credential handling
 
-### Required Changes
+### Migration Guide
 
 1. Update your SDK dependency to version 2.0.0 or later:
 
@@ -18,7 +55,7 @@ The SDK has been updated to use HMAC-based authentication instead of Basic Authe
 npm install testluy-payment-sdk@latest
 ```
 
-2. No code changes are required - the SDK handles all authentication changes internally:
+1. No code changes are required - the SDK handles all authentication changes internally:
 
 ```javascript
 const sdk = new TestluyPaymentSDK({\n  clientId: 'your_client_id',\n  secretKey: 'your_secret_key'\n});
