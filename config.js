@@ -1,5 +1,6 @@
-const defaultConfig = { // Only default Base URL here if needed
-  baseUrl: process.env.TESTLUY_BASE_URL || "http://localhost:8000/api",
+const defaultConfig = {
+  // Only default Base URL here if needed
+  baseUrl: process.env.TESTLUY_BASE_URL || "https://testluy.tech",
 };
 
 export const getConfig = (options = {}) => {
