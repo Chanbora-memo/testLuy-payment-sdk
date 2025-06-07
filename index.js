@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getConfig } from "./config.js";
+import { logger } from "./logger.js";
 import {
   validateAmount,
   validateCallbackUrl,
@@ -42,7 +43,7 @@ class TestluyPaymentSDK {
       !this.baseUrl.startsWith("http://") &&
       !this.baseUrl.startsWith("https://")
     ) {
-      console.warn(
+      logger.warn(
         `TestluyPaymentSDK Warning: Base URL "${this.baseUrl}" might be invalid. Ensure it includes http:// or https://`
       );
     }
@@ -53,7 +54,7 @@ class TestluyPaymentSDK {
     // Set up retry configuration with defaults
     this.retryConfig = {
       ...DEFAULT_RETRY_CONFIG,
-      ...(options.retryConfig || {})
+      ...(options.retryConfig || {}),
     };
 
     // Track rate limit information
@@ -61,7 +62,7 @@ class TestluyPaymentSDK {
       limit: null,
       remaining: null,
       resetAt: null,
-      currentPlan: null
+      currentPlan: null,
     };
   }
 
@@ -88,34 +89,34 @@ class TestluyPaymentSDK {
       method + "\n" + path + "\n" + timestamp + "\n" + bodyString;
 
     try {
-        // Convert secret key to Uint8Array
-        const keyData = encoder.encode(this.secretKey);
+      // Convert secret key to Uint8Array
+      const keyData = encoder.encode(this.secretKey);
 
-        // Import the key for HMAC
-        const key = await crypto.subtle.importKey(
+      // Import the key for HMAC
+      const key = await crypto.subtle.importKey(
         "raw",
         keyData,
         { name: "HMAC", hash: "SHA-256" },
         false, // not extractable
         ["sign"] // usage
-        );
+      );
 
-        // Create the signature
-        const signature = await crypto.subtle.sign(
+      // Create the signature
+      const signature = await crypto.subtle.sign(
         "HMAC",
         key,
         encoder.encode(stringToSign)
-        );
+      );
 
-        // Convert signature ArrayBuffer to hex string
-        const hexSignature = Array.from(new Uint8Array(signature))
+      // Convert signature ArrayBuffer to hex string
+      const hexSignature = Array.from(new Uint8Array(signature))
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
 
-        return hexSignature;
+      return hexSignature;
     } catch (error) {
-        console.error("TestluyPaymentSDK: Error generating signature:", error);
-        throw new Error("Failed to generate request signature.");
+      console.error("TestluyPaymentSDK: Error generating signature:", error);
+      throw new Error("Failed to generate request signature.");
     }
   }
 
@@ -130,17 +131,22 @@ class TestluyPaymentSDK {
   async _getAuthHeaders(method, path, body = "") {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     try {
-        const signature = await this._generateSignature(method, path, timestamp, body);
-        return {
+      const signature = await this._generateSignature(
+        method,
+        path,
+        timestamp,
+        body
+      );
+      return {
         "X-Client-ID": this.clientId,
         "X-Timestamp": timestamp,
         "X-Signature": signature,
         "Content-Type": "application/json",
-        "Accept": "application/json", // Good practice to include Accept header
-        };
+        Accept: "application/json", // Good practice to include Accept header
+      };
     } catch (error) {
-        // Error already logged in _generateSignature
-        throw error; // Re-throw the error
+      // Error already logged in _generateSignature
+      throw error; // Re-throw the error
     }
   }
 
@@ -162,19 +168,31 @@ class TestluyPaymentSDK {
       const response = await axios({
         method: method,
         url: fullUrl,
-        data: method !== 'GET' ? body : undefined,
-        headers: await this._getAuthHeaders(method, path, method !== 'GET' ? body : "")
+        data: method !== "GET" ? body : undefined,
+        headers: await this._getAuthHeaders(
+          method,
+          path,
+          method !== "GET" ? body : ""
+        ),
       });
 
       // Update rate limit info from headers if available
-      if (response.headers['x-ratelimit-limit']) {
-        this.rateLimitInfo.limit = parseInt(response.headers['x-ratelimit-limit'], 10);
+      if (response.headers["x-ratelimit-limit"]) {
+        this.rateLimitInfo.limit = parseInt(
+          response.headers["x-ratelimit-limit"],
+          10
+        );
       }
-      if (response.headers['x-ratelimit-remaining']) {
-        this.rateLimitInfo.remaining = parseInt(response.headers['x-ratelimit-remaining'], 10);
+      if (response.headers["x-ratelimit-remaining"]) {
+        this.rateLimitInfo.remaining = parseInt(
+          response.headers["x-ratelimit-remaining"],
+          10
+        );
       }
-      if (response.headers['x-ratelimit-reset']) {
-        this.rateLimitInfo.resetAt = new Date(parseInt(response.headers['x-ratelimit-reset'], 10) * 1000);
+      if (response.headers["x-ratelimit-reset"]) {
+        this.rateLimitInfo.resetAt = new Date(
+          parseInt(response.headers["x-ratelimit-reset"], 10) * 1000
+        );
       }
 
       return response.data;
@@ -182,9 +200,10 @@ class TestluyPaymentSDK {
       // Check if this is a rate limit error (status code 429)
       if (error.response && error.response.status === 429) {
         // Extract rate limit info from the response
-        const retryAfter = error.response.headers['retry-after'] ||
-                          (error.response.data && error.response.data.retry_after) ||
-                          this.retryConfig.initialDelayMs / 1000;
+        const retryAfter =
+          error.response.headers["retry-after"] ||
+          (error.response.data && error.response.data.retry_after) ||
+          this.retryConfig.initialDelayMs / 1000;
 
         // Update rate limit info
         if (error.response.data) {
@@ -201,7 +220,7 @@ class TestluyPaymentSDK {
           const errorMessage = `Rate limit exceeded. Max retries (${this.retryConfig.maxRetries}) reached.`;
           console.error(`TestluyPaymentSDK: ${errorMessage}`, {
             path,
-            rateLimitInfo: this.rateLimitInfo
+            rateLimitInfo: this.rateLimitInfo,
           });
 
           // Create a more informative error
@@ -215,20 +234,26 @@ class TestluyPaymentSDK {
 
         // Calculate backoff delay with exponential increase
         const delayMs = Math.min(
-          this.retryConfig.initialDelayMs * Math.pow(this.retryConfig.backoffFactor, retryCount),
+          this.retryConfig.initialDelayMs *
+            Math.pow(this.retryConfig.backoffFactor, retryCount),
           this.retryConfig.maxDelayMs
         );
 
         // Use the server's retry-after if available, otherwise use our calculated delay
         const finalDelayMs = retryAfter * 1000 || delayMs;
 
-        console.warn(`TestluyPaymentSDK: Rate limit hit. Retrying in ${finalDelayMs}ms (attempt ${retryCount + 1}/${this.retryConfig.maxRetries})`, {
-          path,
-          rateLimitInfo: this.rateLimitInfo
-        });
+        console.warn(
+          `TestluyPaymentSDK: Rate limit hit. Retrying in ${finalDelayMs}ms (attempt ${
+            retryCount + 1
+          }/${this.retryConfig.maxRetries})`,
+          {
+            path,
+            rateLimitInfo: this.rateLimitInfo,
+          }
+        );
 
         // Wait for the delay period
-        await new Promise(resolve => setTimeout(resolve, finalDelayMs));
+        await new Promise((resolve) => setTimeout(resolve, finalDelayMs));
 
         // Retry the request with incremented retry count
         return this._makeRequestWithRetry(method, path, body, retryCount + 1);
@@ -236,11 +261,12 @@ class TestluyPaymentSDK {
 
       // For non-rate-limit errors, format and throw
       const errorData = error.response?.data;
-      const errorMessage = errorData?.message || errorData?.error || error.message;
+      const errorMessage =
+        errorData?.message || errorData?.error || error.message;
       console.error(`TestluyPaymentSDK: API request failed: ${errorMessage}`, {
         path,
         statusCode: error.response?.status,
-        errorData
+        errorData,
       });
       throw new Error(`API request failed: ${errorMessage}`);
     }
@@ -274,7 +300,10 @@ class TestluyPaymentSDK {
     } catch (error) {
       this.isValidated = false; // Ensure flag is false on error
       // Log the underlying error message if available
-      console.error("TestluyPaymentSDK: Failed to validate credentials:", error.message);
+      console.error(
+        "TestluyPaymentSDK: Failed to validate credentials:",
+        error.message
+      );
       // Re-throw the specific error from validateCredentials or a generic one
       throw new Error(
         `TestluyPaymentSDK: Initialization failed: ${
@@ -303,7 +332,7 @@ class TestluyPaymentSDK {
       validateCallbackUrl(callbackUrl); // Validates the success/failure callback
       if (backUrl) {
         // Also validate the backUrl if provided, using the same URI validation
-         validateCallbackUrl(backUrl); // Reusing the same validator for URI format
+        validateCallbackUrl(backUrl); // Reusing the same validator for URI format
       }
 
       const path = "api/payment-simulator/generate-url";
@@ -334,21 +363,26 @@ class TestluyPaymentSDK {
       };
     } catch (error) {
       // If it's a validation error, just rethrow with a clear message
-      if (error.message.includes('validation failed')) {
+      if (error.message.includes("validation failed")) {
         throw new Error(`Failed to initiate payment: ${error.message}`);
       }
 
       // If it's already a formatted error from _makeRequestWithRetry, just rethrow with context
-      if (error.message.startsWith('API request failed:') || error.isRateLimitError) {
+      if (
+        error.message.startsWith("API request failed:") ||
+        error.isRateLimitError
+      ) {
         throw new Error(`Failed to initiate payment: ${error.message}`);
       }
 
       // Otherwise, format the error
-      console.error("TestluyPaymentSDK: Error in initiatePayment:", error.message);
+      console.error(
+        "TestluyPaymentSDK: Error in initiatePayment:",
+        error.message
+      );
       throw new Error(`Failed to initiate payment: ${error.message}`);
     }
   }
-
 
   /**
    * Retrieves the current status and details of a specific transaction.
@@ -378,17 +412,23 @@ class TestluyPaymentSDK {
       return responseData; // Return the full transaction details object
     } catch (error) {
       // If it's a validation error, just rethrow with a clear message
-      if (error.message.includes('validation failed')) {
+      if (error.message.includes("validation failed")) {
         throw new Error(`Failed to get payment status: ${error.message}`);
       }
 
       // If it's already a formatted error from _makeRequestWithRetry, just rethrow with context
-      if (error.message.startsWith('API request failed:') || error.isRateLimitError) {
+      if (
+        error.message.startsWith("API request failed:") ||
+        error.isRateLimitError
+      ) {
         throw new Error(`Failed to get payment status: ${error.message}`);
       }
 
       // Otherwise, format the error
-      console.error(`TestluyPaymentSDK: Error fetching payment status for ${transactionId}:`, error.message);
+      console.error(
+        `TestluyPaymentSDK: Error fetching payment status for ${transactionId}:`,
+        error.message
+      );
       throw new Error(`Failed to get payment status: ${error.message}`);
     }
   }
@@ -408,35 +448,41 @@ class TestluyPaymentSDK {
       const responseData = await this._makeRequestWithRetry("POST", path, body);
 
       // Ensure the response has the expected structure
-      if (typeof responseData?.isValid !== 'boolean') {
-          console.error("TestluyPaymentSDK: Invalid response structure from validate-credentials:", responseData);
-          throw new Error("Unexpected response format during credential validation.");
+      if (typeof responseData?.isValid !== "boolean") {
+        console.error(
+          "TestluyPaymentSDK: Invalid response structure from validate-credentials:",
+          responseData
+        );
+        throw new Error(
+          "Unexpected response format during credential validation."
+        );
       }
 
       // If isValid is false, the API should ideally send a 4xx error handled by the catch block.
       // But if it returns 200 OK with { isValid: false }, we handle it here.
       if (!responseData.isValid) {
-          throw new Error(responseData.message || "Credentials validation returned false.");
+        throw new Error(
+          responseData.message || "Credentials validation returned false."
+        );
       }
 
       return true; // Only return true if explicitly { isValid: true }
     } catch (error) {
       // If it's already a formatted error from _makeRequestWithRetry, just rethrow
-      if (error.message.startsWith('API request failed:') || error.isRateLimitError) {
+      if (
+        error.message.startsWith("API request failed:") ||
+        error.isRateLimitError
+      ) {
         throw error;
       }
 
       // Otherwise, format the error
-      console.error(
-        "TestluyPaymentSDK: Validation error:",
-        error.message
-      );
+      console.error("TestluyPaymentSDK: Validation error:", error.message);
 
       // Throw an error explaining the failure
       throw new Error(`Credentials validation failed: ${error.message}`);
     }
   }
-
 
   /**
    * Processes the data received at the merchant's callback URL after a payment attempt.
@@ -464,7 +510,8 @@ class TestluyPaymentSDK {
         throw new Error("Invalid callback data received.");
       }
       // Extract transaction_id, prefer case-insensitivity if needed but stick to snake_case
-      const transaction_id = callbackData.transaction_id || callbackData.transactionId;
+      const transaction_id =
+        callbackData.transaction_id || callbackData.transactionId;
 
       if (!transaction_id) {
         throw new Error("Transaction ID is missing in callback data.");
@@ -490,7 +537,7 @@ class TestluyPaymentSDK {
     }
   }
 
-   // --- Deprecated Method ---
+  // --- Deprecated Method ---
 
   /**
    * Generates only the payment URL for redirecting the user to the sandbox.
@@ -502,7 +549,9 @@ class TestluyPaymentSDK {
    * @throws {Error} If input validation fails or the API call is unsuccessful.
    */
   async generatePaymentUrl(amount, callbackUrl) {
-    console.warn("TestluyPaymentSDK: generatePaymentUrl is deprecated. Use initiatePayment instead.");
+    console.warn(
+      "TestluyPaymentSDK: generatePaymentUrl is deprecated. Use initiatePayment instead."
+    );
     try {
       validateAmount(amount);
       validateCallbackUrl(callbackUrl);
@@ -519,8 +568,11 @@ class TestluyPaymentSDK {
       });
 
       if (!response.data?.payment_url) {
-           console.error("TestluyPaymentSDK: Server response missing payment_url", response.data);
-           throw new Error("Incomplete response received from the server.");
+        console.error(
+          "TestluyPaymentSDK: Server response missing payment_url",
+          response.data
+        );
+        throw new Error("Incomplete response received from the server.");
       }
 
       return response.data.payment_url;
