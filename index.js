@@ -51,6 +51,14 @@ class TestluyPaymentSDK {
     this.secretKey = secretKey;
     this.isValidated = false; // State to track if validateCredentials was successful
 
+    // Determine if we should use API prefix based on the base URL
+    // For api-testluy.paragoniu.app, we don't need the /api prefix since it's already an API domain
+    this.useApiPrefix = !this.baseUrl.includes("api-testluy.paragoniu.app");
+
+    logger.info(
+      `TestluyPaymentSDK initialized with baseUrl: ${this.baseUrl}, useApiPrefix: ${this.useApiPrefix}`
+    );
+
     // Set up retry configuration with defaults
     this.retryConfig = {
       ...DEFAULT_RETRY_CONFIG,
@@ -64,6 +72,20 @@ class TestluyPaymentSDK {
       resetAt: null,
       currentPlan: null,
     };
+  }
+
+  /**
+   * Constructs the correct API path based on the base URL configuration.
+   * @private
+   * @param {string} endpoint - The endpoint path (e.g., 'payment-simulator/generate-url').
+   * @returns {string} The full path with or without the 'api/' prefix.
+   */
+  _getApiPath(endpoint) {
+    const path = this.useApiPrefix ? `api/${endpoint}` : endpoint;
+    logger.info(
+      `TestluyPaymentSDK: Generated API path: ${path} (from endpoint: ${endpoint})`
+    );
+    return path;
   }
 
   /**
@@ -142,7 +164,13 @@ class TestluyPaymentSDK {
         "X-Timestamp": timestamp,
         "X-Signature": signature,
         "Content-Type": "application/json",
-        Accept: "application/json", // Good practice to include Accept header
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "User-Agent": "TestluyPaymentSDK/3.3.1 (Node.js)", // More descriptive User-Agent
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "Connection": "keep-alive",
       };
     } catch (error) {
       // Error already logged in _generateSignature
@@ -335,7 +363,7 @@ class TestluyPaymentSDK {
         validateCallbackUrl(backUrl); // Reusing the same validator for URI format
       }
 
-      const path = "api/payment-simulator/generate-url";
+      const path = this._getApiPath("payment-simulator/generate-url");
       const body = {
         amount,
         callback_url: callbackUrl,
@@ -395,7 +423,9 @@ class TestluyPaymentSDK {
     try {
       validateTransactionId(transactionId);
 
-      const path = `api/payment-simulator/status/${transactionId}`;
+      const path = this._getApiPath(
+        `payment-simulator/status/${transactionId}`
+      );
 
       // Use the retry mechanism for this request
       const responseData = await this._makeRequestWithRetry("GET", path);
@@ -441,7 +471,7 @@ class TestluyPaymentSDK {
    */
   async validateCredentials() {
     try {
-      const path = "api/validate-credentials";
+      const path = this._getApiPath("validate-credentials");
       const body = {}; // Validation endpoint expects an empty body
 
       // Use the retry mechanism for this request
@@ -556,7 +586,7 @@ class TestluyPaymentSDK {
       validateAmount(amount);
       validateCallbackUrl(callbackUrl);
 
-      const path = "api/payment-simulator/generate-url";
+      const path = this._getApiPath("payment-simulator/generate-url");
       const body = {
         amount: amount,
         callback_url: callbackUrl,

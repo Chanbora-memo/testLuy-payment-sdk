@@ -1,5 +1,36 @@
 # Changelog
 
+## Version 3.3.0 (Latest)
+
+### Multi-Domain Support
+
+The SDK now automatically handles different API base URLs:
+
+- **Automatic Path Detection**: SDK automatically detects the correct API path based on the base URL
+- **ParagonIU Domain Support**: When using `api-testluy.paragoniu.app`, the SDK correctly omits the `/api/` prefix
+- **Testluy.tech Domain Support**: When using `testluy.tech`, the SDK includes the `/api/` prefix as expected
+- **Backward Compatibility**: All existing code continues to work without changes
+
+### How to Use
+
+Simply configure your base URL and the SDK handles the rest:
+
+```javascript
+// For ParagonIU deployment (no /api prefix needed)
+const sdk = new TestluyPaymentSDK({
+  clientId: 'your-client-id',
+  secretKey: 'your-secret-key',
+  baseUrl: 'https://api-testluy.paragoniu.app'
+});
+
+// For standard deployment (includes /api prefix)
+const sdk = new TestluyPaymentSDK({
+  clientId: 'your-client-id', 
+  secretKey: 'your-secret-key',
+  baseUrl: 'https://testluy.tech'
+});
+```
+
 ## Version 3.1.0
 
 ### Rate Limiting Support
