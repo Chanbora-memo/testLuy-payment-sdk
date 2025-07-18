@@ -1,34 +1,38 @@
 /**
  * Logger utility for TestLuy Payment SDK
- * Conditionally logs based on NODE_ENV
+ * This is a compatibility wrapper around the enhanced Logger implementation
  */
 
-const isDevelopment = process.env.NODE_ENV !== "production";
+import defaultLogger from './http/Logger.js';
 
+// Re-export the default logger instance
 export const logger = {
-  log: (...args) => {
-    if (isDevelopment) {
-      console.log(...args);
-    }
-  },
-  warn: (...args) => {
-    if (isDevelopment) {
-      console.warn(...args);
-    }
-  },
-  error: (...args) => {
-    if (isDevelopment) {
-      console.error(...args);
-    }
-  },
-  info: (...args) => {
-    if (isDevelopment) {
-      console.info(...args);
-    }
-  },
-  debug: (...args) => {
-    if (isDevelopment) {
-      console.debug(...args);
-    }
-  },
+  log: (...args) => defaultLogger.info(...args),
+  warn: (...args) => defaultLogger.warn(...args),
+  error: (...args) => defaultLogger.error(...args),
+  info: (...args) => defaultLogger.info(...args),
+  debug: (...args) => defaultLogger.debug(...args),
 };
+
+// Configure the logger based on NODE_ENV
+if (typeof process !== 'undefined' && process.env) {
+  const isDevelopment = process.env.NODE_ENV !== "production";
+  
+  // In production, only show warnings and errors by default
+  if (!isDevelopment) {
+    defaultLogger.updateConfig({
+      level: 'warn',
+      includeTimestamp: true,
+      maskSensitive: true
+    });
+  } else {
+    // In development, show all logs
+    defaultLogger.updateConfig({
+      level: 'debug',
+      includeTimestamp: true,
+      colorize: true
+    });
+  }
+}
+
+export default logger;
