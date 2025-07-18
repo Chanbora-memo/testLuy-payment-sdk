@@ -689,12 +689,35 @@ class NodeAdapter {
       return url;
     }
     
+    // Handle null or undefined URL
+    if (!url) {
+      throw new Error('URL cannot be null or undefined');
+    }
+    
     // Ensure URL has a leading slash
     const cleanUrl = url.startsWith('/') ? url : `/${url}`;
     
+    // Ensure baseUrl is valid
+    if (!this.baseUrl) {
+      throw new Error('Base URL is not configured');
+    }
+    
+    // Validate baseUrl format
+    if (!this.baseUrl.startsWith('http://') && !this.baseUrl.startsWith('https://')) {
+      throw new Error(`Invalid base URL format: ${this.baseUrl}`);
+    }
+    
     // Combine base URL with request URL (removing trailing slash from baseUrl if present)
     const baseUrlWithoutTrailingSlash = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
-    return `${baseUrlWithoutTrailingSlash}${cleanUrl}`;
+    
+    try {
+      // Validate the constructed URL
+      const fullUrl = `${baseUrlWithoutTrailingSlash}${cleanUrl}`;
+      new URL(fullUrl); // This will throw if the URL is invalid
+      return fullUrl;
+    } catch (error) {
+      throw new Error(`Failed to construct valid URL: ${error.message}`);
+    }
   }
 }
 
