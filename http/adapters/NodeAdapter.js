@@ -713,10 +713,22 @@ class NodeAdapter {
     try {
       // Validate the constructed URL
       const fullUrl = `${baseUrlWithoutTrailingSlash}${cleanUrl}`;
-      new URL(fullUrl); // This will throw if the URL is invalid
+      
+      // Validate URL by creating a URL object
+      const urlObj = new URL(fullUrl);
+      
+      // Ensure the URL has the correct structure
+      // This helps prevent issues during retry attempts where the URL might be malformed
+      if (!urlObj.pathname.includes('/api/') && cleanUrl.includes('/api/')) {
+        // If the URL should have /api/ but doesn't, fix it
+        const fixedUrl = `${baseUrlWithoutTrailingSlash}${cleanUrl}`;
+        return fixedUrl;
+      }
+      
       return fullUrl;
     } catch (error) {
-      throw new Error(`Failed to construct valid URL: ${error.message}`);
+      // Provide more detailed error message for debugging
+      throw new Error(`Failed to construct valid URL from base "${this.baseUrl}" and path "${url}": ${error.message}`);
     }
   }
 }

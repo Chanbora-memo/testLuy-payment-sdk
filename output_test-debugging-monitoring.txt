@@ -1,0 +1,335 @@
+PS D:\Uni Folder\Senior (semester 2)\FYP Project\testluy-payment-sdk> npm run test:debug
+
+> testluy-payment-sdk@3.6.3 test:debug
+> node test-debugging-monitoring.js
+
+Enhanced TestluyPaymentSDK loaded with Cloudflare resilience
+=== TestluyPaymentSDK Advanced Diagnostics ===
+
+Initializing SDK with debug logging...
+ [2025-07-18T15:43:04.199Z] [INFO] [TestluyPaymentSDK] TestluyPaymentSDK: Logging interceptor configured with metrics: { enableMetrics: true } 
+ [2025-07-18T15:43:04.201Z] [INFO] [TestluyPaymentSDK] TestluyPaymentSDK: Debug interceptor configured 
+
+=== Test 1: API Connectivity ===
+Testing direct fetch to API endpoint...
+Status: 404 Not Found
+Headers: {
+  'alt-svc': 'h3=":443"; ma=86400',
+  'cache-control': 'no-cache, private',
+  'cf-cache-status': 'DYNAMIC',
+  'cf-ray': '961317b778955ff6-SIN',
+  connection: 'keep-alive',
+  'content-encoding': 'br',
+  'content-type': 'text/html; charset=UTF-8',
+  date: 'Fri, 18 Jul 2025 15:43:05 GMT',
+  nel: '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}',
+  'report-to': '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=SFXZxsELYDMsUC403%2BQM0gChJSSTzTGVPGgSaZIS9rSWqXXF4K7OsKLgghb%2BYIaJoFnz4tiRpfwoPjW%2BCdPC9zKW14nlI51H286651DtAjJEhwFRarLlxAsesl93HrPoQFQpx6TUvnp3w7oO"}],"group":"cf-nel","max_age":604800}',
+  server: 'cloudflare',
+  'server-timing': 'cfL4;desc="?proto=TCP&rtt=25125&min_rtt=23906&rtt_var=8608&sent=5&recv=6&lost=0&retrans=0&sent_bytes=3006&recv_bytes=885&delivery_rate=120471&cwnd=252&unsent_bytes=0&cid=b95ec70f01489f14&ts=313&x=0"',
+  'transfer-encoding': 'chunked',
+  vary: 'Origin, accept-encoding',
+  'x-powered-by': 'PHP/8.2.29'
+}
+Direct fetch error: Body is unusable: Body has already been read
+
+=== Test 2: Credential Validation ===
+Testing credential validation...
+ [2025-07-18T15:43:04.695Z] [INFO] [TestluyPaymentSDK] TestluyPaymentSDK: Generated API path: /api/validate-credentials (from endpoint: validate-credentials)
+ [2025-07-18T15:43:04.701Z] [DEBUG] [TestluyPaymentSDK] Request tracking started: {
+  requestId: 'req_1752853384700_jnhilatd5',
+  method: 'POST',
+  url: '/api/validate-credentials'
+}
+ [2025-07-18T15:43:04.702Z] [DEBUG] [TestluyPaymentSDK] HTTP Request: {
+  method: 'POST',
+  url: '/api/validate-credentials',
+  headers: {
+    'Sec-CH-UA': '"Google Chrome";v="115", "Chromium";v="115", "Not=A?Brand";v="99"',
+    Accept: 'text/plain, */*; q=0.01',
+    'Sec-CH-UA-Mobile': '?0',
+    Connection: 'keep-alive',
+    DNT: '1',
+    'Sec-Fetch-Site': 'cross-site',
+    'Sec-Fetch-Dest': 'empty',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Sec-Fetch-Mode': 'cors',
+    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+    Referer: '/api/validate-credentials',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+    Pragma: 'no-cache',
+    'Cache-Control': 'no-cache',
+    'Sec-CH-UA-Platform': '"macOS"',
+    'X-Client-ID': 'fd7865634fcfaaac2b96f03386e07d27',
+    'X-Timestamp': '1752853384',
+    'X-Signature': 'b****3',
+    Cookie: '',
+    'Upgrade-Insecure-Requests': '1',
+    'Content-Type': 'application/json'
+  },
+  body: {}
+}
+ [2025-07-18T15:43:04.705Z] [DEBUG] [TestluyPaymentSDK] DebugMonitor: Request started {
+  requestId: 'req_1752853384700_jnhilatd5',
+  method: 'POST',
+  url: '/api/validate-credentials'
+}
+ [2025-07-18T15:43:04.706Z] [DEBUG] [TestluyPaymentSDK] DebugMonitor: HTTP Request {
+  method: 'POST',
+  url: '/api/validate-credentials',
+  headers: {
+    'Sec-CH-UA': '"Google Chrome";v="115", "Chromium";v="115", "Not=A?Brand";v="99"',
+    Accept: 'text/plain, */*; q=0.01',
+    'Sec-CH-UA-Mobile': '?0',
+    Connection: 'keep-alive',
+    DNT: '1',
+    'Sec-Fetch-Site': 'cross-site',
+    'Sec-Fetch-Dest': 'empty',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Sec-Fetch-Mode': 'cors',
+    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+    Referer: '/api/validate-credentials',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+    Pragma: 'no-cache',
+    'Cache-Control': 'no-cache',
+    'Sec-CH-UA-Platform': '"macOS"',
+    'X-Client-ID': 'fd7865634fcfaaac2b96f03386e07d27',
+    'X-Timestamp': '1752853384',
+    'X-Signature': 'b****3',
+    Cookie: '',
+    'Upgrade-Insecure-Requests': '1',
+    'Content-Type': 'application/json'
+  },
+  body: {}
+}
+ [2025-07-18T15:43:04.931Z] [DEBUG] [TestluyPaymentSDK] Request tracking completed: {
+  requestId: 'req_1752853384700_jnhilatd5',
+  responseTime: 230,
+  success: true,
+  statusCode: 200
+}
+ [2025-07-18T15:43:04.933Z] [DEBUG] [TestluyPaymentSDK] HTTP Response: {
+  status: 200,
+  statusText: 'OK',
+  url: '/api/validate-credentials',
+  headers: {
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cache-control': 'no-cache, private',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': '961317b94adb5ff6-SIN',
+    connection: 'keep-alive',
+    'content-encoding': 'br',
+    'content-type': 'application/json',
+    date: 'Fri, 18 Jul 2025 15:43:05 GMT',
+    nel: '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}',
+    'report-to': '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=iBXNQzG3Z5DGQNZf5lotwr653PGYO2mjJ49RWIHkHz3hNlihJDf3BV5MDZJB4%2FlqFcw4FeB%2F40Rkcp10EMP0NlqOaVpSAyD11MxM%2BMaj9vgGgsX5JPXNsSApy4d4xiipoUx4cVfWKRHHZDY9"}],"group":"cf-nel","max_age":604800}',
+    server: 'cloudflare',
+    'server-timing': 'cfL4;desc="?proto=TCP&rtt=26335&min_rtt=23906&rtt_var=6937&sent=10&recv=9&lost=0&retrans=0&sent_bytes=6480&recv_bytes=1801&delivery_rate=188327&cwnd=256&unsent_bytes=0&cid=b95ec70f01489f14&ts=569&x=0"',
+    'transfer-encoding': 'chunked',
+    vary: 'Origin',
+    'x-powered-by': 'PHP/8.2.29',
+    'x-ratelimit-limit': '100',
+    'x-ratelimit-remaining': '99'
+  },
+  body: { isValid: true }
+}
+ [2025-07-18T15:43:04.937Z] [DEBUG] [TestluyPaymentSDK] DebugMonitor: Request completed {
+  requestId: 'req_1752853384700_jnhilatd5',
+  duration: '231.61ms',
+  success: true,
+  statusCode: 200
+}
+ [2025-07-18T15:43:04.939Z] [DEBUG] [TestluyPaymentSDK] DebugMonitor: HTTP Response {
+  status: 200,
+  statusText: 'OK',
+  url: '/api/validate-credentials',
+  headers: {
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cache-control': 'no-cache, private',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': '961317b94adb5ff6-SIN',
+    connection: 'keep-alive',
+    'content-encoding': 'br',
+    'content-type': 'application/json',
+    date: 'Fri, 18 Jul 2025 15:43:05 GMT',
+    nel: '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}',
+    'report-to': '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=iBXNQzG3Z5DGQNZf5lotwr653PGYO2mjJ49RWIHkHz3hNlihJDf3BV5MDZJB4%2FlqFcw4FeB%2F40Rkcp10EMP0NlqOaVpSAyD11MxM%2BMaj9vgGgsX5JPXNsSApy4d4xiipoUx4cVfWKRHHZDY9"}],"group":"cf-nel","max_age":604800}',
+    server: 'cloudflare',
+    'server-timing': 'cfL4;desc="?proto=TCP&rtt=26335&min_rtt=23906&rtt_var=6937&sent=10&recv=9&lost=0&retrans=0&sent_bytes=6480&recv_bytes=1801&delivery_rate=188327&cwnd=256&unsent_bytes=0&cid=b95ec70f01489f14&ts=569&x=0"',
+    'transfer-encoding': 'chunked',
+    vary: 'Origin',
+    'x-powered-by': 'PHP/8.2.29',
+    'x-ratelimit-limit': '100',
+    'x-ratelimit-remaining': '99'
+  },
+  body: { isValid: true }
+}
+Credentials valid: true
+
+=== Test 3: Payment Initiation ===
+Testing payment initiation...
+ [2025-07-18T15:43:04.960Z] [INFO] [TestluyPaymentSDK] TestluyPaymentSDK: Generated API path: /api/payment-simulator/generate-url (from endpoint: payment-simulator/generate-url) 
+ [2025-07-18T15:43:05.266Z] [DEBUG] [TestluyPaymentSDK] Request tracking started: {
+  requestId: 'req_1752853385266_ad10tat47',
+  method: 'POST',
+  url: '/api/payment-simulator/generate-url'
+}
+ [2025-07-18T15:43:05.267Z] [DEBUG] [TestluyPaymentSDK] HTTP Request: {
+  method: 'POST',
+  url: '/api/payment-simulator/generate-url',
+  headers: {
+    DNT: '1',
+    Connection: 'keep-alive',
+    'Sec-Fetch-Site': 'cross-site',
+    'Cache-Control': 'no-cache',
+    'Sec-CH-UA': '"Google Chrome";v="116", "Chromium";v="116", "Not=A?Brand";v="99"',
+    Accept: 'text/plain, */*; q=0.01',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/117.0',
+    'Sec-CH-UA-Mobile': '?0',
+    'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
+    Pragma: 'no-cache',
+    'Sec-CH-UA-Platform': '"Linux"',
+    Referer: '/api/payment-simulator/generate-url',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'X-Client-ID': 'fd7865634fcfaaac2b96f03386e07d27',
+    'X-Timestamp': '1752853384',
+    'X-Signature': 'd****e',
+    Cookie: '',
+    'Upgrade-Insecure-Requests': '1',
+    'Content-Type': 'application/json'
+  },
+  body: { amount: 10.5, callback_url: 'https://example.com/callback' }
+}
+ [2025-07-18T15:43:05.269Z] [DEBUG] [TestluyPaymentSDK] DebugMonitor: Request started {
+  requestId: 'req_1752853385266_ad10tat47',
+  method: 'POST',
+  url: '/api/payment-simulator/generate-url'
+}
+ [2025-07-18T15:43:05.269Z] [DEBUG] [TestluyPaymentSDK] DebugMonitor: HTTP Request {
+  method: 'POST',
+  url: '/api/payment-simulator/generate-url',
+  headers: {
+    DNT: '1',
+    Connection: 'keep-alive',
+    'Sec-Fetch-Site': 'cross-site',
+    'Cache-Control': 'no-cache',
+    'Sec-CH-UA': '"Google Chrome";v="116", "Chromium";v="116", "Not=A?Brand";v="99"',
+    Accept: 'text/plain, */*; q=0.01',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/117.0',
+    'Sec-CH-UA-Mobile': '?0',
+    'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
+    Pragma: 'no-cache',
+    'Sec-CH-UA-Platform': '"Linux"',
+    Referer: '/api/payment-simulator/generate-url',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'X-Client-ID': 'fd7865634fcfaaac2b96f03386e07d27',
+    'X-Timestamp': '1752853384',
+    'X-Signature': 'd****e',
+    Cookie: '',
+    'Upgrade-Insecure-Requests': '1',
+    'Content-Type': 'application/json'
+  },
+  body: { amount: 10.5, callback_url: 'https://example.com/callback' }
+}
+ [2025-07-18T15:43:05.462Z] [DEBUG] [TestluyPaymentSDK] Request tracking completed: {
+  requestId: 'req_1752853385266_ad10tat47',
+  responseTime: 195,
+  success: true,
+  statusCode: 200
+}
+ [2025-07-18T15:43:05.462Z] [DEBUG] [TestluyPaymentSDK] HTTP Response: {
+  status: 200,
+  statusText: 'OK',
+  url: '/api/payment-simulator/generate-url',
+  headers: {
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cache-control': 'no-cache, private',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': '961317bccf595ff6-SIN',
+    connection: 'keep-alive',
+    'content-encoding': 'br',
+    'content-type': 'application/json',
+    date: 'Fri, 18 Jul 2025 15:43:05 GMT',
+    nel: '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}',
+    'report-to': '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=31t9SRsj8NWtn%2BU3GufcgS6gi6uYCI1YC%2FRPz7ogt4Jhcloxv1fy%2FKdSHJ%2BK58GwXXYi3HL%2FbdiOaVWgnSn8BMOZE7Ash7ZY4LILZ2B94WFg3e4joMBzD0ETpi6%2B1jl47aEmJfXTUBMOt8Fc"}],"group":"cf-nel","max_age":604800}',
+    server: 'cloudflare',
+    'server-timing': 'cfL4;desc="?proto=TCP&rtt=25965&min_rtt=23286&rtt_var=5942&sent=13&recv=11&lost=0&retrans=0&sent_bytes=7514&recv_bytes=2764&delivery_rate=188327&cwnd=256&unsent_bytes=0&cid=b95ec70f01489f14&ts=1101&x=0"',
+    'transfer-encoding': 'chunked',
+    vary: 'Origin',
+    'x-powered-by': 'PHP/8.2.29',
+    'x-ratelimit-limit': '100',
+    'x-ratelimit-remaining': '98'
+  },
+  body: {
+    payment_url: 'http://api-testluy.paragoniu.app/api/sandbox/payment?transaction_id=TRX_PKkMuTy7feZS&amount=10.5&application_id=1&callback_url=https%3A%2F%2Fexample.com%2Fcallback',
+    transaction_id: 'TRX_PKkMuTy7feZS'
+  }
+}
+ [2025-07-18T15:43:05.464Z] [DEBUG] [TestluyPaymentSDK] DebugMonitor: Request completed {
+  requestId: 'req_1752853385266_ad10tat47',
+  duration: '195.76ms',
+  success: true,
+  statusCode: 200
+}
+ [2025-07-18T15:43:05.465Z] [DEBUG] [TestluyPaymentSDK] DebugMonitor: HTTP Response {
+  status: 200,
+  statusText: 'OK',
+  url: '/api/payment-simulator/generate-url',
+  headers: {
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cache-control': 'no-cache, private',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': '961317bccf595ff6-SIN',
+    connection: 'keep-alive',
+    'content-encoding': 'br',
+    'content-type': 'application/json',
+    date: 'Fri, 18 Jul 2025 15:43:05 GMT',
+    nel: '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}',
+    'report-to': '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=31t9SRsj8NWtn%2BU3GufcgS6gi6uYCI1YC%2FRPz7ogt4Jhcloxv1fy%2FKdSHJ%2BK58GwXXYi3HL%2FbdiOaVWgnSn8BMOZE7Ash7ZY4LILZ2B94WFg3e4joMBzD0ETpi6%2B1jl47aEmJfXTUBMOt8Fc"}],"group":"cf-nel","max_age":604800}',
+    server: 'cloudflare',
+    'server-timing': 'cfL4;desc="?proto=TCP&rtt=25965&min_rtt=23286&rtt_var=5942&sent=13&recv=11&lost=0&retrans=0&sent_bytes=7514&recv_bytes=2764&delivery_rate=188327&cwnd=256&unsent_bytes=0&cid=b95ec70f01489f14&ts=1101&x=0"',
+    'transfer-encoding': 'chunked',
+    vary: 'Origin',
+    'x-powered-by': 'PHP/8.2.29',
+    'x-ratelimit-limit': '100',
+    'x-ratelimit-remaining': '98'
+  },
+  body: {
+    payment_url: 'http://api-testluy.paragoniu.app/api/sandbox/payment?transaction_id=TRX_PKkMuTy7feZS&amount=10.5&application_id=1&callback_url=https%3A%2F%2Fexample.com%2Fcallback',
+    transaction_id: 'TRX_PKkMuTy7feZS'
+  }
+}
+Payment initiated: {
+  paymentUrl: 'http://api-testluy.paragoniu.app/api/sandbox/payment?transaction_id=TRX_PKkMuTy7feZS&amount=10.5&application_id=1&callback_url=https%3A%2F%2Fexample.com%2Fcallback',
+  transactionId: 'TRX_PKkMuTy7feZS'
+}
+
+=== Test 4: Diagnostic Report ===
+{
+  "timestamp": "2025-07-18T15:43:05.467Z",
+  "summary": {
+    "totalRequests": 2,
+    "successRate": "100.00%",
+    "averageResponseTime": "212.50ms"
+  },
+  "issues": {
+    "rateLimitingOccurrences": 0,
+    "cloudflareBlockingOccurrences": 0,
+    "totalRetries": 0,
+    "recentErrors": []
+  },
+  "recommendations": [],
+  "configuration": {
+    "logLevel": "debug",
+    "metricsEnabled": true,
+    "sensitiveDataMasking": true
+  }
+}
+
+=== Test 5: Troubleshooting Suggestions ===
+No troubleshooting suggestions available
+
+=== Diagnostics Complete ===

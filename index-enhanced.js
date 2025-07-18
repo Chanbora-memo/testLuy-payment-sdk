@@ -92,11 +92,12 @@ class TestluyPaymentSDK {
       ...(options.retryConfig || {}),
     };
     
-    // Set up Cloudflare resilience configuration
+    // Set up Cloudflare resilience configuration - enabled by default with all features
     this.cloudflareConfig = {
       enabled: true,
       rotateUserAgent: true,
       addBrowserHeaders: true,
+      addTimingVariation: true,
       ...(options.cloudflareConfig || {}),
     };
     
@@ -292,8 +293,24 @@ class TestluyPaymentSDK {
    * @returns {string} The full path with or without the 'api/' prefix.
    */
   _getApiPath(endpoint) {
+    // Handle null or undefined endpoint
+    if (!endpoint) {
+      logger.error('TestluyPaymentSDK: Invalid endpoint - cannot be null or undefined');
+      throw new Error('Invalid endpoint - cannot be null or undefined');
+    }
+    
     // Ensure endpoint doesn't start with a slash
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+    
+    // Check if the endpoint already includes 'api/' prefix to avoid duplication
+    if (cleanEndpoint.startsWith('api/')) {
+      // If endpoint already has api/ prefix, don't add it again
+      const finalPath = `/${cleanEndpoint}`;
+      logger.info(
+        `TestluyPaymentSDK: Generated API path (already has prefix): ${finalPath} (from endpoint: ${endpoint})`
+      );
+      return finalPath;
+    }
     
     // Add api/ prefix if needed
     const path = this.useApiPrefix ? `api/${cleanEndpoint}` : cleanEndpoint;
@@ -388,6 +405,22 @@ class TestluyPaymentSDK {
    */
   async _makeRequest(method, path, body = {}) {
     try {
+      // Validate path before making the request
+      if (!path) {
+        throw new Error('Invalid API path: path cannot be empty');
+      }
+      
+      // Validate that the path is properly formatted
+      if (!path.startsWith('/')) {
+        logger.warn(`TestluyPaymentSDK: API path "${path}" doesn't start with a slash, adding one`);
+        path = `/${path}`;
+      }
+      
+      // Ensure the path includes the /api/ prefix if useApiPrefix is true
+      if (this.useApiPrefix && !path.includes('/api/')) {
+        logger.warn(`TestluyPaymentSDK: API path "${path}" is missing /api/ prefix, it may not work correctly`);
+      }
+      
       // Make the API request using the enhanced HTTP client
       const response = await this.httpClient.request({
         method: method,
@@ -397,6 +430,17 @@ class TestluyPaymentSDK {
       
       return response;
     } catch (error) {
+      // Handle URL construction errors
+      if (error.message && (
+          error.message.includes('Invalid URL') || 
+          error.message.includes('Failed to construct') ||
+          error.message.includes('URL cannot be null')
+      )) {
+        logger.error(`TestluyPaymentSDK: URL construction error: ${error.message}`);
+        logger.error(`TestluyPaymentSDK: Attempted path: "${path}", baseUrl: "${this.baseUrl}"`);
+        throw new Error(`URL construction error: ${error.message}. Please check your baseUrl and endpoint path.`);
+      }
+      
       // Handle specific error types
       if (error instanceof RateLimitError) {
         const guidance = error.getRetryGuidance();

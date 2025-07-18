@@ -6,8 +6,9 @@ import TestluyPaymentSDK from './index-enhanced.js';
 
 // Sample credentials for testing
 const TEST_CREDENTIALS = {
-  clientId: '0f07be84baa574d9a639bbea06db61ba',
-  secretKey: 'secret_232e5ef95af0680a48eaf9d95cab2ea0695d6d1d8f3ff4adf1906829d2d8fe80',
+  clientId: 'fd7865634fcfaaac2b96f03386e07d27',
+  secretKey: 'secret_3c8ba8fab36d6e259a2bc40230c40c9891b36cd08e6f33224e4b0abb45170e24',
+  // Using the standardized base URL
   baseUrl: 'https://api-testluy.paragoniu.app'
 };
 
