@@ -1,6 +1,6 @@
 {
   "name": "testluy-payment-sdk",
-  "version": "3.6.3",
+  "version": "3.6.4",
   "description": "SDK for TestLuy Payment Simulator with Cloudflare resilience",
   "main": "index-enhanced.js",
   "type": "module",
