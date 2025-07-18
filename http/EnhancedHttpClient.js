@@ -6,6 +6,7 @@
 import { mergeConfig } from './config.js';
 import { createHttpClient } from './adapters/HttpClientAdapter.js';
 import { detectEnvironment, Environment, getOptimalHttpClient } from './utils/EnvironmentDetector.js';
+import CloudflareBypass from './CloudflareBypass.js';
 
 /**
  * EnhancedHttpClient - A robust HTTP client with interceptor support and enhanced resilience
@@ -35,6 +36,9 @@ class EnhancedHttpClient {
     
     // Detect environment and select appropriate HTTP client
     this.environment = detectEnvironment();
+    
+    // Initialize Cloudflare bypass module
+    this.cloudflareBypass = new CloudflareBypass(this.config.cloudflareConfig);
     
     // Create HTTP client configuration
     const clientConfig = {

@@ -11,6 +11,7 @@ import EnhancedHttpClient from './http/EnhancedHttpClient.js';
 import RequestFingerprinter from './http/RequestFingerprinter.js';
 import ErrorHandler from './http/ErrorHandler.js';
 import RetryStrategy from './http/RetryStrategy.js';
+import CloudflareBypass from './http/CloudflareBypass.js';
 import { CloudflareError, RateLimitError } from './http/errors/index.js';
 import logger, { LogLevel } from './http/Logger.js';
 import { LoggingInterceptor, DebugInterceptor } from './http/interceptors/index.js';
@@ -78,9 +79,8 @@ class TestluyPaymentSDK {
     this.secretKey = secretKey;
     this.isValidated = false; // State to track if validateCredentials was successful
 
-    // Determine if we should use API prefix based on the base URL
-    // For api-testluy.paragoniu.app, we don't need the /api prefix since it's already an API domain
-    this.useApiPrefix = !this.baseUrl.includes("api-testluy.paragoniu.app");
+    // Always use the /api prefix for all API endpoints
+    this.useApiPrefix = true;
 
     logger.info(
       `TestluyPaymentSDK initialized with baseUrl: ${this.baseUrl}, useApiPrefix: ${this.useApiPrefix}`
@@ -136,6 +136,9 @@ class TestluyPaymentSDK {
     // Initialize crypto polyfill
     this.cryptoPolyfill = CryptoPolyfill;
     
+    // Initialize Cloudflare bypass module
+    this.cloudflareBypass = new CloudflareBypass(this.cloudflareConfig);
+    
     // Configure logger based on options
     if (this.loggingConfig) {
       logger.updateConfig({
@@ -182,7 +185,7 @@ class TestluyPaymentSDK {
       }
     });
     
-    // Add request interceptor for authentication and browser fingerprinting
+    // Add request interceptor for authentication
     this.httpClient.addRequestInterceptor({
       onRequest: async (config) => {
         // Add authentication headers
@@ -192,23 +195,21 @@ class TestluyPaymentSDK {
           config.data
         );
         
-        // Add browser-like headers if enabled
-        let browserHeaders = {};
-        if (this.cloudflareConfig.enabled && this.cloudflareConfig.addBrowserHeaders) {
-          browserHeaders = this.requestFingerprinter.generateHeaders();
-        }
-        
         // Merge headers
         return {
           ...config,
           headers: {
             ...config.headers,
-            ...authHeaders,
-            ...browserHeaders
+            ...authHeaders
           }
         };
       }
     });
+    
+    // Add Cloudflare bypass interceptor
+    if (this.cloudflareConfig.enabled) {
+      this.httpClient.addRequestInterceptor(this.cloudflareBypass.createRequestInterceptor());
+    }
     
     // Add response interceptor for rate limit tracking
     this.httpClient.addResponseInterceptor({
@@ -291,11 +292,19 @@ class TestluyPaymentSDK {
    * @returns {string} The full path with or without the 'api/' prefix.
    */
   _getApiPath(endpoint) {
-    const path = this.useApiPrefix ? `api/${endpoint}` : endpoint;
+    // Ensure endpoint doesn't start with a slash
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+    
+    // Add api/ prefix if needed
+    const path = this.useApiPrefix ? `api/${cleanEndpoint}` : cleanEndpoint;
+    
+    // Ensure path starts with a slash
+    const finalPath = path.startsWith('/') ? path : `/${path}`;
+    
     logger.info(
-      `TestluyPaymentSDK: Generated API path: ${path} (from endpoint: ${endpoint})`
+      `TestluyPaymentSDK: Generated API path: ${finalPath} (from endpoint: ${endpoint})`
     );
-    return path;
+    return finalPath;
   }
 
   /**
@@ -316,8 +325,12 @@ class TestluyPaymentSDK {
           : JSON.stringify(body) // Stringify if it's an object
         : ""; // Empty string for GET/DELETE etc.
 
+    // Remove the leading slash from the path for signature generation
+    // This is important because the API expects the path without a leading slash
+    const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+
     const stringToSign =
-      method + "\n" + path + "\n" + timestamp + "\n" + bodyString;
+      method + "\n" + cleanPath + "\n" + timestamp + "\n" + bodyString;
 
     try {
       // Use the cross-platform CryptoPolyfill to generate the signature

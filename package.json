@@ -1,11 +1,29 @@
 {
   "name": "testluy-payment-sdk",
-  "version": "3.5.4",
-  "description": "SDK for TestLuy Payment Simulator",
-  "main": "index.js",
+  "version": "3.6.0",
+  "description": "SDK for TestLuy Payment Simulator with Cloudflare resilience",
+  "main": "index-enhanced.js",
   "type": "module",
+  "exports": {
+    ".": "./index-enhanced.js",
+    "./legacy": "./index.js"
+  },
+  "files": [
+    "index-enhanced.js",
+    "index.js",
+    "config.js",
+    "validation.js",
+    "http/**/*.js",
+    "README.md",
+    "README-ENHANCED.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "node test.js",
+    "test": "node test-enhanced.js",
+    "test:debug": "node test-debugging-monitoring.js",
+    "test:browser": "node test-browser-compatibility.js",
+    "test:logger": "node test-logger.js",
     "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.js --testPathPattern=tests/unit",
     "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.js --testPathPattern=tests/integration",
     "test:all": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.js"
@@ -13,10 +31,24 @@
   "keywords": [
     "payment",
     "simulator",
-    "sdk"
+    "sdk",
+    "cloudflare",
+    "resilience",
+    "api"
   ],
   "author": "Chanbora Seng",
   "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chanboraseng/testluy-payment-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/chanboraseng/testluy-payment-sdk/issues"
+  },
+  "homepage": "https://github.com/chanboraseng/testluy-payment-sdk#readme",
   "dependencies": {
     "axios": "^1.7.3",
     "dotenv": "^16.4.7",

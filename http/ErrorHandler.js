@@ -486,7 +486,15 @@ class ErrorHandler {
     // Retry the request
     try {
       // Create a new axios instance to avoid interceptor loops
-      const axios = error.config.axios || require('axios');
+      let axios = error.config.axios;
+      if (!axios) {
+        try {
+          const axiosModule = await import('axios');
+          axios = axiosModule.default || axiosModule;
+        } catch (importError) {
+          throw new Error('axios is required for retry functionality but not available');
+        }
+      }
       const response = await axios.request(error.config);
       return response;
     } catch (retryError) {

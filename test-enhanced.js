@@ -1,101 +1,98 @@
 /**
- * @fileoverview
- * Test file for the enhanced TestluyPaymentSDK with Cloudflare resilience
+ * Test script for the enhanced TestluyPaymentSDK with Cloudflare resilience
  */
 
 import TestluyPaymentSDK from './index-enhanced.js';
-import dotenv from 'dotenv';
 
-// Load environment variables
-dotenv.config();
+// Sample credentials for testing
+const TEST_CREDENTIALS = {
+  clientId: '0f07be84baa574d9a639bbea06db61ba',
+  secretKey: 'secret_232e5ef95af0680a48eaf9d95cab2ea0695d6d1d8f3ff4adf1906829d2d8fe80',
+  baseUrl: 'https://api-testluy.paragoniu.app'
+};
 
-// Get credentials from environment variables
-const clientId = process.env.TESTLUY_CLIENT_ID;
-const secretKey = process.env.TESTLUY_SECRET_KEY;
-const baseUrl = process.env.TESTLUY_BASE_URL || 'https://api-testluy.paragoniu.app';
+async function testEnhancedSDK() {
+  console.log('=== Testing Enhanced TestluyPaymentSDK ===\n');
 
-// Check if credentials are available
-if (!clientId || !secretKey) {
-  console.error('Error: TESTLUY_CLIENT_ID and TESTLUY_SECRET_KEY environment variables are required.');
-  console.error('Please create a .env file with these variables or set them in your environment.');
-  process.exit(1);
-}
+  // Create SDK with detailed logging
+  console.log('Initializing SDK with debug logging...');
+  const sdk = new TestluyPaymentSDK({
+    ...TEST_CREDENTIALS,
+    loggingConfig: {
+      level: 'debug',
+      includeHeaders: true,
+      includeBody: true,
+      enableMetrics: true
+    },
+    cloudflareConfig: {
+      enabled: true,
+      rotateUserAgent: true,
+      addBrowserHeaders: true,
+      addTimingVariation: true
+    },
+    retryConfig: {
+      maxRetries: 3,
+      baseDelay: 1000,
+      maxDelay: 10000,
+      backoffFactor: 2,
+      jitterFactor: 0.2
+    }
+  });
 
-// Create SDK instance with enhanced Cloudflare resilience
-const sdk = new TestluyPaymentSDK({
-  clientId,
-  secretKey,
-  baseUrl,
-  retryConfig: {
-    maxRetries: 3,
-    baseDelay: 1000,
-    maxDelay: 10000,
-    backoffFactor: 2,
-    jitterFactor: 0.1
-  },
-  cloudflareConfig: {
-    enabled: true,
-    rotateUserAgent: true,
-    addBrowserHeaders: true
-  }
-});
-
-// Test functions
-async function testValidateCredentials() {
-  console.log('\n--- Testing Credential Validation ---');
   try {
-    const isValid = await sdk.validateCredentials();
-    console.log('Credentials valid:', isValid);
+    // Test 1: Validate credentials
+    console.log('\n=== Test 1: Credential Validation ===');
+    try {
+      console.log('Validating credentials...');
+      const isValid = await sdk.validateCredentials();
+      console.log('Credentials valid:', isValid);
+    } catch (error) {
+      console.error('Validation error:', error.message);
+    }
+
+    // Test 2: Initiate payment
+    console.log('\n=== Test 2: Payment Initiation ===');
+    try {
+      console.log('Initiating payment...');
+      const result = await sdk.initiatePayment(10.50, 'https://example.com/callback');
+      console.log('Payment initiated:', result);
+
+      // If payment initiation was successful, test payment status
+      if (result && result.transactionId) {
+        console.log('\n=== Test 3: Payment Status ===');
+        console.log('Checking payment status...');
+        const statusResult = await sdk.getPaymentStatus(result.transactionId);
+        console.log('Payment status:', statusResult);
+      }
+    } catch (error) {
+      console.error('Payment initiation error:', error.message);
+    }
+
+    // Test 4: Performance metrics
+    console.log('\n=== Test 4: Performance Metrics ===');
+    const metrics = sdk.getPerformanceMetrics();
+    console.log('Success rate:', `${metrics.requests?.successful || 0}/${metrics.requests?.total || 0}`);
+    console.log('Average response time:', `${metrics.performance?.averageResponseTime || 'N/A'}ms`);
+    console.log('Rate limited requests:', metrics.errors?.rateLimited || 0);
+    console.log('Cloudflare blocks:', metrics.errors?.cloudflare || 0);
+
+    // Test 5: Troubleshooting suggestions
+    console.log('\n=== Test 5: Troubleshooting Suggestions ===');
+    const suggestions = sdk.getTroubleshootingSuggestions();
+    if (suggestions && suggestions.length > 0) {
+      suggestions.forEach(suggestion => {
+        console.log(`[${suggestion.priority}] ${suggestion.issue}: ${suggestion.suggestion}`);
+      });
+    } else {
+      console.log('No troubleshooting suggestions available');
+    }
+
   } catch (error) {
-    console.error('Validation error:', error.message);
+    console.error('\n=== Unexpected Error ===');
+    console.error(error);
   }
+
+  console.log('\n=== Testing Complete ===');
 }
 
-async function testInitiatePayment() {
-  console.log('\n--- Testing Payment Initiation ---');
-  try {
-    const { paymentUrl, transactionId } = await sdk.initiatePayment(
-      10.50,
-      'https://example.com/callback',
-      'https://example.com/back'
-    );
-    console.log('Payment URL:', paymentUrl);
-    console.log('Transaction ID:', transactionId);
-    
-    // Store transaction ID for status check
-    return transactionId;
-  } catch (error) {
-    console.error('Payment initiation error:', error.message);
-    return null;
-  }
-}
-
-async function testGetPaymentStatus(transactionId) {
-  if (!transactionId) {
-    console.log('Skipping payment status check (no transaction ID)');
-    return;
-  }
-  
-  console.log('\n--- Testing Payment Status Check ---');
-  try {
-    const status = await sdk.getPaymentStatus(transactionId);
-    console.log('Payment status:', status);
-  } catch (error) {
-    console.error('Payment status error:', error.message);
-  }
-}
-
-// Run tests
-async function runTests() {
-  try {
-    await testValidateCredentials();
-    const transactionId = await testInitiatePayment();
-    await testGetPaymentStatus(transactionId);
-    
-    console.log('\nAll tests completed!');
-  } catch (error) {
-    console.error('Test runner error:', error);
-  }
-}
-
-runTests();
+testEnhancedSDK().catch(console.error);

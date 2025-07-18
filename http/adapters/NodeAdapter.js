@@ -38,16 +38,26 @@ class NodeAdapter {
    * 
    * @private
    */
-  _loadLibrary() {
+  async _loadLibrary() {
     try {
       if (this.adapter === 'axios') {
-        // In a real implementation, we would use dynamic import or require
-        // For this example, we'll assume axios is available globally
-        this.client = null; // Would be: require('axios')
+        // Use dynamic import instead of require
+        try {
+          const axiosModule = await import('axios');
+          this.client = axiosModule.default || axiosModule;
+        } catch (importError) {
+          // For this example, we'll assume axios is available globally
+          this.client = null;
+        }
       } else {
-        // In a real implementation, we would use dynamic import or require
-        // For this example, we'll assume node-fetch is available globally
-        this.client = null; // Would be: require('node-fetch')
+        // Use dynamic import instead of require
+        try {
+          const fetchModule = await import('node-fetch');
+          this.client = fetchModule.default || fetchModule;
+        } catch (importError) {
+          // For this example, we'll assume node-fetch is available globally
+          this.client = null;
+        }
       }
     } catch (error) {
       throw new Error(`Failed to load ${this.adapter}: ${error.message}`);
@@ -317,7 +327,68 @@ class NodeAdapter {
         signal: AbortSignal.timeout(timeout)
       });
       
-      const responseData = await response.json();
+      // Check if response is successful
+      if (!response.ok) {
+        // Try to get response text for error details
+        let errorData;
+        const contentType = response.headers.get('content-type') || '';
+        
+        try {
+          if (contentType.includes('application/json')) {
+            errorData = await response.json();
+          } else {
+            errorData = await response.text();
+          }
+        } catch (parseError) {
+          errorData = `Failed to parse error response: ${parseError.message}`;
+        }
+        
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+        error.config = originalConfig;
+        error.response = {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          data: errorData
+        };
+        throw error;
+      }
+      
+      // Parse response data
+      let responseData;
+      const contentType = response.headers.get('content-type') || '';
+      
+      try {
+        if (contentType.includes('application/json')) {
+          responseData = await response.json();
+        } else {
+          // If not JSON, return as text
+          responseData = await response.text();
+          
+          // If we expected JSON but got something else, this might be a Cloudflare block
+          if (responseData.includes('<!DOCTYPE') || responseData.includes('<html')) {
+            const error = new Error('Received HTML response instead of JSON - possible Cloudflare block');
+            error.config = originalConfig;
+            error.response = {
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+              data: responseData
+            };
+            throw error;
+          }
+        }
+      } catch (parseError) {
+        const error = new Error(`Failed to parse response: ${parseError.message}`);
+        error.config = originalConfig;
+        error.response = {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          data: await response.text()
+        };
+        throw error;
+      }
       
       const mockResponse = {
         data: responseData,
@@ -524,7 +595,68 @@ class NodeAdapter {
       
       clearTimeout(timeoutId);
       
-      const responseData = await response.json();
+      // Check if response is successful
+      if (!response.ok) {
+        // Try to get response text for error details
+        let errorData;
+        const contentType = response.headers.get('content-type') || '';
+        
+        try {
+          if (contentType.includes('application/json')) {
+            errorData = await response.json();
+          } else {
+            errorData = await response.text();
+          }
+        } catch (parseError) {
+          errorData = `Failed to parse error response: ${parseError.message}`;
+        }
+        
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+        error.config = originalConfig;
+        error.response = {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          data: errorData
+        };
+        throw error;
+      }
+      
+      // Parse response data
+      let responseData;
+      const contentType = response.headers.get('content-type') || '';
+      
+      try {
+        if (contentType.includes('application/json')) {
+          responseData = await response.json();
+        } else {
+          // If not JSON, return as text
+          responseData = await response.text();
+          
+          // If we expected JSON but got something else, this might be a Cloudflare block
+          if (responseData.includes('<!DOCTYPE') || responseData.includes('<html')) {
+            const error = new Error('Received HTML response instead of JSON - possible Cloudflare block');
+            error.config = originalConfig;
+            error.response = {
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+              data: responseData
+            };
+            throw error;
+          }
+        }
+      } catch (parseError) {
+        const error = new Error(`Failed to parse response: ${parseError.message}`);
+        error.config = originalConfig;
+        error.response = {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          data: await response.text()
+        };
+        throw error;
+      }
       
       const mockResponse = {
         data: responseData,
@@ -557,11 +689,12 @@ class NodeAdapter {
       return url;
     }
     
-    // Remove leading slash from URL if present
-    const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
+    // Ensure URL has a leading slash
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
     
-    // Combine base URL with request URL
-    return `${this.baseUrl}/${cleanUrl}`;
+    // Combine base URL with request URL (removing trailing slash from baseUrl if present)
+    const baseUrlWithoutTrailingSlash = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
+    return `${baseUrlWithoutTrailingSlash}${cleanUrl}`;
   }
 }
 
