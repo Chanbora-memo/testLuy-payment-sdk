@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./index-enhanced.js",
-    "./legacy": "./index.js"
+    "./legacy": "./index.js",
+    "./index-enhanced.js": "./index-enhanced.js"
   },
   "files": [
     "index-enhanced.js",
