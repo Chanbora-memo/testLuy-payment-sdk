@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">32.62% </span>
+                <span class="strong">27.65% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>46/141</span>
+                <span class='fraction'>39/141</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">55.32% </span>
+                <span class="strong">50.76% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>109/197</span>
+                <span class='fraction'>100/197</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">60% </span>
+                <span class="strong">20% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/5</span>
+                <span class='fraction'>1/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">32.62% </span>
+                <span class="strong">27.65% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>46/141</span>
+                <span class='fraction'>39/141</span>
             </div>
         
             
@@ -515,7 +515,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -568,32 +568,32 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">183x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">122x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1010,34 +1010,34 @@ export const DEFAULT_CONFIG = {
  * @param {Object} [baseConfig=DEFAULT_CONFIG] - Base configuration to merge with
  * @returns {Object} Merged configuration
  */
-export function mergeConfig(userConfig, baseConfig = DEFAULT_CONFIG) {
+export function <span class="fstat-no" title="function not covered" >mergeConfig(</span>userConfig, baseConfig = <span class="branch-0 cbranch-no" title="branch not covered" >DEFAULT_CONFIG)</span> {
   // Start with a deep copy of the base config
-  const config = JSON.parse(JSON.stringify(baseConfig));
+  const config = <span class="cstat-no" title="statement not covered" >JSON.parse(JSON.stringify(baseConfig));</span>
   
   // If no user config, return the default
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!userConfig) {
+<span class="cstat-no" title="statement not covered" >  if (!userConfig) {</span>
 <span class="cstat-no" title="statement not covered" >    return config;</span>
   }
   
   // Merge top-level properties
-  Object.keys(userConfig).forEach(key =&gt; {
+<span class="cstat-no" title="statement not covered" >  Object.keys(userConfig).forEach(<span class="fstat-no" title="function not covered" >ke</span>y =&gt; {</span>
     // For objects, merge recursively
-    if (
+<span class="cstat-no" title="statement not covered" >    if (</span>
       typeof userConfig[key] === 'object' &amp;&amp; 
       userConfig[key] !== null &amp;&amp;
       !Array.isArray(userConfig[key]) &amp;&amp;
       config[key] &amp;&amp; 
       typeof config[key] === 'object'
     ) {
-      config[key] = { ...config[key], ...userConfig[key] };
+<span class="cstat-no" title="statement not covered" >      config[key] = { ...config[key], ...userConfig[key] };</span>
     } 
     // For non-objects, replace directly
     else {
-      config[key] = userConfig[key];
+<span class="cstat-no" title="statement not covered" >      config[key] = userConfig[key];</span>
     }
   });
   
-  return config;
+<span class="cstat-no" title="statement not covered" >  return config;</span>
 }
 &nbsp;
 /**
@@ -1402,7 +1402,7 @@ export function <span class="fstat-no" title="function not covered" >getComplete
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-19T11:25:39.079Z
+                at 2025-07-19T13:09:32.190Z
             </div>
         <script src="../prettify.js"></script>
         <script>

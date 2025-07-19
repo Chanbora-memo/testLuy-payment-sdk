@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">4.54% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>8/176</span>
+                <span class='fraction'>0/176</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">7.05% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>12/170</span>
+                <span class='fraction'>0/170</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">5.55% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/18</span>
+                <span class='fraction'>0/18</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">4.54% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>8/176</span>
+                <span class='fraction'>0/176</span>
             </div>
         
             
@@ -725,7 +725,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -736,8 +736,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">61x</span>
-<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -759,11 +759,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">61x</span>
-<span class="cline-any cline-yes">61x</span>
-<span class="cline-any cline-yes">61x</span>
-<span class="cline-any cline-yes">61x</span>
-<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1359,8 +1359,8 @@ class DebugMonitor {
    * @param {boolean} [options.maskSensitive=true] - Whether to mask sensitive data
    * @param {Object} [options.logger] - Custom logger instance
    */
-  constructor(options = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> {
-    this.options = {
+<span class="fstat-no" title="function not covered" >  co</span>nstructor(options = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> {
+<span class="cstat-no" title="statement not covered" >    this.options = {</span>
       enabled: options.enabled || false,
       trackPerformance: options.trackPerformance || false,
       logRequests: options.logRequests || false,
@@ -1371,8 +1371,8 @@ class DebugMonitor {
     };
     
     // Initialize performance tracking
-    this.requestTimers = new Map();
-    this.performanceData = {
+<span class="cstat-no" title="statement not covered" >    this.requestTimers = new Map();</span>
+<span class="cstat-no" title="statement not covered" >    this.performanceData = {</span>
       requestCounts: {
         total: 0,
         success: 0,
@@ -1394,11 +1394,11 @@ class DebugMonitor {
     };
     
     // Bind methods
-    this.startRequest = this.startRequest.bind(this);
-    this.endRequest = this.endRequest.bind(this);
-    this.logRequest = this.logRequest.bind(this);
-    this.logResponse = this.logResponse.bind(this);
-    this.logError = this.logError.bind(this);
+<span class="cstat-no" title="statement not covered" >    this.startRequest = this.startRequest.bind(this);</span>
+<span class="cstat-no" title="statement not covered" >    this.endRequest = this.endRequest.bind(this);</span>
+<span class="cstat-no" title="statement not covered" >    this.logRequest = this.logRequest.bind(this);</span>
+<span class="cstat-no" title="statement not covered" >    this.logResponse = this.logResponse.bind(this);</span>
+<span class="cstat-no" title="statement not covered" >    this.logError = this.logError.bind(this);</span>
   }
   
   /**
@@ -1975,7 +1975,7 @@ export default DebugMonitor;</pre></td></tr></table></pre>
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-19T11:25:39.079Z
+                at 2025-07-19T13:09:32.190Z
             </div>
         <script src="../prettify.js"></script>
         <script>
