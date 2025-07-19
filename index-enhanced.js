@@ -421,6 +421,15 @@ class TestluyPaymentSDK {
         logger.warn(`TestluyPaymentSDK: API path "${path}" is missing /api/ prefix, it may not work correctly`);
       }
       
+      // Validate that the combination of baseUrl and path will create a valid URL
+      try {
+        const testUrl = new URL(path, this.baseUrl);
+        logger.debug(`TestluyPaymentSDK: URL validation passed for: ${testUrl.toString()}`);
+      } catch (urlValidationError) {
+        logger.error(`TestluyPaymentSDK: URL validation failed for baseUrl="${this.baseUrl}" and path="${path}": ${urlValidationError.message}`);
+        throw new Error(`Invalid URL combination: baseUrl="${this.baseUrl}" and path="${path}". ${urlValidationError.message}`);
+      }
+      
       // Make the API request using the enhanced HTTP client
       const response = await this.httpClient.request({
         method: method,

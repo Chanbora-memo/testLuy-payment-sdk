@@ -685,7 +685,7 @@ class NodeAdapter {
    */
   _buildUrl(url) {
     // If URL is already absolute, return it as is
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
       return url;
     }
     
@@ -711,24 +711,49 @@ class NodeAdapter {
     const baseUrlWithoutTrailingSlash = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
     
     try {
-      // Validate the constructed URL
+      // Construct the full URL
       const fullUrl = `${baseUrlWithoutTrailingSlash}${cleanUrl}`;
       
-      // Validate URL by creating a URL object
-      const urlObj = new URL(fullUrl);
-      
-      // Ensure the URL has the correct structure
-      // This helps prevent issues during retry attempts where the URL might be malformed
-      if (!urlObj.pathname.includes('/api/') && cleanUrl.includes('/api/')) {
-        // If the URL should have /api/ but doesn't, fix it
-        const fixedUrl = `${baseUrlWithoutTrailingSlash}${cleanUrl}`;
-        return fixedUrl;
+      // Validate URL by creating a URL object - use more robust validation
+      let urlObj;
+      try {
+        urlObj = new URL(fullUrl);
+      } catch (urlError) {
+        // If URL construction fails, try to fix common issues
+        console.warn(`Initial URL construction failed for "${fullUrl}", attempting to fix: ${urlError.message}`);
+        
+        // Try a simpler approach - just ensure the path is properly formatted
+        let fixedPath = cleanUrl;
+        
+        // Remove any double slashes in the path
+        fixedPath = fixedPath.replace(/\/+/g, '/');
+        
+        // Ensure it starts with a slash
+        if (!fixedPath.startsWith('/')) {
+          fixedPath = `/${fixedPath}`;
+        }
+        
+        const fixedUrl = `${baseUrlWithoutTrailingSlash}${fixedPath}`;
+        
+        try {
+          urlObj = new URL(fixedUrl);
+          console.warn(`Fixed URL construction: "${fixedUrl}"`);
+          return fixedUrl;
+        } catch (secondError) {
+          // If we still can't construct a valid URL, throw the original error
+          throw urlError;
+        }
       }
       
       return fullUrl;
     } catch (error) {
       // Provide more detailed error message for debugging
-      throw new Error(`Failed to construct valid URL from base "${this.baseUrl}" and path "${url}": ${error.message}`);
+      console.error(`URL construction failed - Base: "${this.baseUrl}", Path: "${url}", Clean Path: "${cleanUrl}"`);
+      console.error(`Full error details:`, error);
+      
+      // Create a more descriptive error message
+      const errorMessage = error.message || 'Unknown URL construction error';
+      throw new Error(`Failed to construct valid URL from base "${this.baseUrl}" and path "${url}": ${errorMessage}. This may indicate an issue with the retry mechanism or URL formatting.`);
     }
   }
 }

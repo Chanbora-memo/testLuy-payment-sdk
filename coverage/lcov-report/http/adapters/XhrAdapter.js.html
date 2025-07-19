@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/61</span>
+                <span class='fraction'>0/70</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/46</span>
+                <span class='fraction'>0/53</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/61</span>
+                <span class='fraction'>0/70</span>
             </div>
         
             
@@ -265,7 +265,29 @@
 <a name='L200'></a><a href='#L200'>200</a>
 <a name='L201'></a><a href='#L201'>201</a>
 <a name='L202'></a><a href='#L202'>202</a>
-<a name='L203'></a><a href='#L203'>203</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -406,9 +428,31 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -602,15 +646,37 @@ class XhrAdapter {
      */
 <span class="fstat-no" title="function not covered" >    _b</span>uildUrl(url) {
         // If URL is already absolute, return it as is
-<span class="cstat-no" title="statement not covered" >        if (url.startsWith('http://') || url.startsWith('https://')) {</span>
+<span class="cstat-no" title="statement not covered" >        if (url &amp;&amp; (url.startsWith('http://') || url.startsWith('https://'))) {</span>
 <span class="cstat-no" title="statement not covered" >            return url;</span>
         }
 &nbsp;
-        // Remove leading slash from URL if present
+        // Handle null or undefined URL
+<span class="cstat-no" title="statement not covered" >        if (!url) {</span>
+<span class="cstat-no" title="statement not covered" >            throw new Error('URL cannot be null or undefined');</span>
+        }
+&nbsp;
+        // Remove leading slash from URL if present to avoid double slashes
         const cleanUrl = <span class="cstat-no" title="statement not covered" >url.startsWith('/') ? url.slice(1) : url;</span>
 &nbsp;
+        // Ensure baseUrl is valid
+<span class="cstat-no" title="statement not covered" >        if (!this.baseUrl) {</span>
+<span class="cstat-no" title="statement not covered" >            throw new Error('Base URL is not configured');</span>
+        }
+&nbsp;
+        // Remove trailing slash from baseUrl if present
+        const baseUrlWithoutTrailingSlash = <span class="cstat-no" title="statement not covered" >this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;</span>
+&nbsp;
         // Combine base URL with request URL
-<span class="cstat-no" title="statement not covered" >        return `${this.baseUrl}/${cleanUrl}`;</span>
+        const fullUrl = <span class="cstat-no" title="statement not covered" >`${baseUrlWithoutTrailingSlash}/${cleanUrl}`;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        try {</span>
+            // Validate URL by creating a URL object
+<span class="cstat-no" title="statement not covered" >            new URL(fullUrl);</span>
+<span class="cstat-no" title="statement not covered" >            return fullUrl;</span>
+        } catch (error) {
+            // Provide detailed error message for debugging
+<span class="cstat-no" title="statement not covered" >            throw new Error(`Failed to construct valid URL from base "${this.baseUrl}" and path "${url}": ${error.message}`);</span>
+        }
     }
 &nbsp;
     /**
@@ -676,7 +742,7 @@ export default XhrAdapter;</pre></td></tr></table></pre>
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-18T08:14:06.766Z
+                at 2025-07-18T18:38:18.073Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

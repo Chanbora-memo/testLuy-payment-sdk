@@ -133,15 +133,37 @@ class XhrAdapter {
      */
     _buildUrl(url) {
         // If URL is already absolute, return it as is
-        if (url.startsWith('http://') || url.startsWith('https://')) {
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
             return url;
         }
 
-        // Remove leading slash from URL if present
+        // Handle null or undefined URL
+        if (!url) {
+            throw new Error('URL cannot be null or undefined');
+        }
+
+        // Remove leading slash from URL if present to avoid double slashes
         const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
 
+        // Ensure baseUrl is valid
+        if (!this.baseUrl) {
+            throw new Error('Base URL is not configured');
+        }
+
+        // Remove trailing slash from baseUrl if present
+        const baseUrlWithoutTrailingSlash = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
+
         // Combine base URL with request URL
-        return `${this.baseUrl}/${cleanUrl}`;
+        const fullUrl = `${baseUrlWithoutTrailingSlash}/${cleanUrl}`;
+
+        try {
+            // Validate URL by creating a URL object
+            new URL(fullUrl);
+            return fullUrl;
+        } catch (error) {
+            // Provide detailed error message for debugging
+            throw new Error(`Failed to construct valid URL from base "${this.baseUrl}" and path "${url}": ${error.message}`);
+        }
     }
 
     /**
