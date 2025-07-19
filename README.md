@@ -52,7 +52,7 @@ import TestluyPaymentSDK from 'testluy-payment-sdk';
 const options = {
   clientId: process.env.TESTLUY_CLIENT_ID,   // Required: Your application Client ID
   secretKey: process.env.TESTLUY_SECRET_KEY, // Required: **NEVER EXPOSE THIS IN CLIENT-SIDE CODE**
-  baseUrl: process.env.TESTLUY_BASE_URL,     // Required: e.g., 'http://localhost:8000' or 'https://api.testluy.com' (NO /api suffix)
+  baseUrl: process.env.TESTLUY_BASE_URL,     // Required: e.g., 'http://localhost:8000' or 'https://api-testluy.paragoniu.app' (NO /api suffix)
 
   // Optional: Configure rate limiting behavior
   retryConfig: {
@@ -85,7 +85,7 @@ Your `secretKey` is highly sensitive. **Never embed it directly in your frontend
 
 * `clientId` (String, Required): Your unique Client ID obtained from the Testluy developer portal.
 * `secretKey` (String, Required): Your secret key obtained from the Testluy developer portal. **Keep this confidential.**
-* `baseUrl` (String, Required): The base URL of the Testluy backend API. **Important:** Do *not* include the `/api` path segment here (e.g., use `https://api.testluy.com` or `http://localhost:8000`, **not** `https://api.testluy.com/api`).
+* `baseUrl` (String, Required): The base URL of the Testluy backend API. **Important:** Do *not* include the `/api` path segment here (e.g., use `https://api-testluy.paragoniu.app` or `http://localhost:8000`, **not** `https://api-testluy.paragoniu.app/api`).
 
 ## Usage / API Reference
 

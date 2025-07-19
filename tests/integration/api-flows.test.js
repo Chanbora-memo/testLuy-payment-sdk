@@ -47,7 +47,7 @@ describe('API Flow Integration Tests', () => {
         '/payment-simulator/generate-url', 
         'POST', 
         {
-          payment_url: 'https://payment.testluy.com/pay/test-transaction-123',
+          payment_url: 'http://api-testluy.paragoniu.app/api/sandbox/payment?transaction_id=test-transaction-123&amount=100.5&application_id=1&callback_url=https%3A%2F%2Fexample.com%2Fcallback',
           transaction_id: transactionId
         }
       );
@@ -78,7 +78,7 @@ describe('API Flow Integration Tests', () => {
       );
       
       expect(paymentResult).toEqual({
-        paymentUrl: 'https://payment.testluy.com/pay/test-transaction-123',
+        paymentUrl: 'http://api-testluy.paragoniu.app/api/sandbox/payment?transaction_id=test-transaction-123&amount=100.5&application_id=1&callback_url=https%3A%2F%2Fexample.com%2Fcallback',
         transactionId: transactionId
       });
       
@@ -128,7 +128,7 @@ describe('API Flow Integration Tests', () => {
         '/payment-simulator/generate-url', 
         'POST', 
         {
-          payment_url: 'https://payment.testluy.com/pay/test-transaction-456',
+          payment_url: 'http://api-testluy.paragoniu.app/api/sandbox/payment?transaction_id=test-transaction-456&amount=100.5&application_id=1&callback_url=https%3A%2F%2Fexample.com%2Fcallback',
           transaction_id: transactionId
         }
       );

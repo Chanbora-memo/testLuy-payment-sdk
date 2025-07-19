@@ -55,21 +55,9 @@ class RequestFingerprinter {
     
     try {
       if (url) {
-        let parsedUrl;
-        
-        // Handle relative URLs by creating a dummy base URL
-        if (url.startsWith('/') || (!url.startsWith('http://') && !url.startsWith('https://'))) {
-          // Use a dummy base URL for relative paths to avoid "Invalid URL" errors
-          parsedUrl = new URL(url, 'https://example.com');
-          // Don't set origin and hostname for relative URLs
-          origin = '';
-          hostname = '';
-        } else {
-          // Absolute URL - parse normally
-          parsedUrl = new URL(url);
-          origin = parsedUrl.origin;
-          hostname = parsedUrl.hostname;
-        }
+        const parsedUrl = new URL(url);
+        origin = parsedUrl.origin;
+        hostname = parsedUrl.hostname;
         
         // Try to determine content type from URL path
         if (parsedUrl.pathname.endsWith('.json')) {

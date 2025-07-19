@@ -125,6 +125,14 @@ class EnhancedHttpClient {
       throw new Error('Invalid error interceptor. Must have an onError method.');
     }
     
+    // If this interceptor has an ErrorHandler instance, provide it with the HTTP adapter reference
+    if (interceptor._errorHandler && this.httpClient) {
+      interceptor._errorHandler.httpAdapter = this.httpClient;
+      
+      // Also provide adapter type information for debugging
+      interceptor._errorHandler.adapterType = this.httpClient.constructor?.name || 'Unknown';
+    }
+    
     this.errorInterceptors.push(interceptor);
     return this.errorInterceptors.length - 1; // Return index as ID
   }
@@ -179,6 +187,10 @@ class EnhancedHttpClient {
       // Apply all registered request interceptors in sequence
       let modifiedOptions = { ...options };
       
+      // Add adapter type information to request configuration for retry operations
+      modifiedOptions.adapterType = this.httpClient?.constructor?.name || 'Unknown';
+      modifiedOptions.baseUrl = this.config.baseUrl;
+      
       for (const interceptor of this.requestInterceptors) {
         try {
           modifiedOptions = await interceptor.onRequest(modifiedOptions);
@@ -205,6 +217,13 @@ class EnhancedHttpClient {
       
       return modifiedResponse.data;
     } catch (error) {
+      // Ensure error has adapter context for retry operations
+      if (error.config) {
+        error.config.adapterType = this.httpClient?.constructor?.name || 'Unknown';
+        error.config.baseUrl = this.config.baseUrl;
+        error.config.httpAdapter = this.httpClient;
+      }
+      
       // Apply all registered error interceptors in sequence
       let processedError = error;
       

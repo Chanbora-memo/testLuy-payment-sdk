@@ -7,6 +7,7 @@
 import { SDKError, RateLimitError, CloudflareError } from './errors/index.js';
 import ErrorDetector, { ErrorType } from './ErrorDetector.js';
 import RetryStrategy from './RetryStrategy.js';
+import { getDeploymentErrorContext, getDeploymentInfo } from './utils/DeploymentEnvironmentDetector.js';
 
 /**
  * ErrorHandler class for handling errors with recovery strategies
@@ -25,6 +26,7 @@ class ErrorHandler {
    * @param {Function} [options.onRecovery] - Callback function called when recovery is successful
    * @param {boolean} [options.detailedErrors=true] - Whether to include detailed information in errors
    * @param {boolean} [options.autoRetry=true] - Whether to automatically retry failed requests
+   * @param {Object} [options.httpAdapter] - HTTP adapter instance for making retry requests
    */
   constructor(options = {}) {
     this.retryStrategy = options.retryStrategy || new RetryStrategy();
@@ -34,6 +36,7 @@ class ErrorHandler {
     this.onRecovery = options.onRecovery;
     this.detailedErrors = options.detailedErrors !== false;
     this.autoRetry = options.autoRetry !== false;
+    this.httpAdapter = options.httpAdapter;
     
     // Recovery strategies by error type
     this.recoveryStrategies = {
@@ -123,17 +126,27 @@ class ErrorHandler {
   }
   
   /**
-   * Creates a detailed error report for debugging
+   * Creates a detailed error report for debugging with deployment context
    * 
    * @param {Error} error - The error to report
    * @returns {Object} Detailed error report
    */
   createErrorReport(error) {
+    const deploymentInfo = getDeploymentInfo();
+    const deploymentContext = getDeploymentErrorContext(error);
+    
     const report = {
       timestamp: new Date().toISOString(),
       errorType: error.errorType || 'unknown',
       message: error.message,
-      retryable: error.retryable !== false
+      retryable: error.retryable !== false,
+      deployment: {
+        platform: deploymentInfo.platform,
+        environment: deploymentInfo.environment,
+        isDeployment: deploymentInfo.isDeployment,
+        isServerless: deploymentInfo.isServerless
+      },
+      deploymentContext
     };
     
     // Add request information if available
@@ -462,9 +475,27 @@ class ErrorHandler {
       throw error;
     }
     
+    // Preserve retry context to maintain URL construction parameters with deployment info
+    const deploymentInfo = getDeploymentInfo();
+    const retryContext = {
+      originalUrl: error.config?.url,
+      baseUrl: this.httpAdapter?.baseUrl,
+      attempt: attempt + 1,
+      originalError: error.message,
+      adapterType: this.httpAdapter?.constructor?.name,
+      timestamp: new Date().toISOString(),
+      deployment: {
+        platform: deploymentInfo.platform,
+        environment: deploymentInfo.environment,
+        isDeployment: deploymentInfo.isDeployment
+      }
+    };
+    
     // Increment retry attempt
     if (error.config) {
       error.config.retryAttempt = attempt + 1;
+      // Add retry context to config for debugging
+      error.config.retryContext = retryContext;
     }
     
     // Calculate delay (use context.retryDelay if provided)
@@ -476,7 +507,8 @@ class ErrorHandler {
         attempt: attempt + 1,
         error,
         delay,
-        context
+        context,
+        retryContext
       });
     }
     
@@ -485,22 +517,43 @@ class ErrorHandler {
     
     // Retry the request
     try {
-      // Create a new axios instance to avoid interceptor loops
-      let axios = error.config.axios;
-      if (!axios) {
-        try {
-          const axiosModule = await import('axios');
-          axios = axiosModule.default || axiosModule;
-        } catch (importError) {
-          throw new Error('axios is required for retry functionality but not available');
+      // Use HTTP adapter if available, otherwise fall back to axios
+      if (this.httpAdapter && typeof this.httpAdapter.request === 'function') {
+        // Use the original HTTP adapter to maintain URL construction logic
+        const response = await this.httpAdapter.request(error.config);
+        return response;
+      } else {
+        // Fallback to axios for backward compatibility
+        let axios = error.config.axios;
+        if (!axios) {
+          try {
+            const axiosModule = await import('axios');
+            axios = axiosModule.default || axiosModule;
+          } catch (importError) {
+            throw new Error('HTTP adapter not available and axios is required for retry functionality but not available');
+          }
         }
+        const response = await axios.request(error.config);
+        return response;
       }
-      const response = await axios.request(error.config);
-      return response;
     } catch (retryError) {
-      // Update retry attempt count
+      // Update retry attempt count and preserve context
       if (error.config && retryError.config) {
         retryError.config.retryAttempt = error.config.retryAttempt;
+        retryError.config.retryContext = retryContext;
+      }
+      
+      // Enhance retry error with context information including deployment details
+      if (retryError.message && retryError.message.includes('Invalid URL')) {
+        retryError.retryContext = retryContext;
+        retryError.deploymentContext = getDeploymentErrorContext(retryError, retryContext);
+        
+        const platformInfo = retryContext.deployment ? 
+          ` Platform: ${retryContext.deployment.platform}, Environment: ${retryContext.deployment.environment}.` : '';
+        
+        retryError.recoveryMessage = `URL construction failed during retry attempt ${retryContext.attempt}. ` +
+          `Original URL: "${retryContext.originalUrl}", Base URL: "${retryContext.baseUrl}", ` +
+          `Adapter: ${retryContext.adapterType}.${platformInfo} This may indicate an issue with URL construction in retry scenarios.`;
       }
       
       // If retry fails, throw the new error
@@ -558,6 +611,9 @@ class ErrorHandler {
     const self = this;
     
     return {
+      // Expose the ErrorHandler instance so EnhancedHttpClient can set the HTTP adapter
+      _errorHandler: self,
+      
       async onError(error) {
         try {
           // Handle the error with recovery strategies

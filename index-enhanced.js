@@ -4,21 +4,28 @@
  */
 
 import { getConfig } from "./config.js";
-import { validateAmount, validateCallbackUrl, validateTransactionId } from "./validation.js";
+import {
+  validateAmount,
+  validateCallbackUrl,
+  validateTransactionId,
+} from "./validation.js";
 
 // Import enhanced HTTP components
-import EnhancedHttpClient from './http/EnhancedHttpClient.js';
-import RequestFingerprinter from './http/RequestFingerprinter.js';
-import ErrorHandler from './http/ErrorHandler.js';
-import RetryStrategy from './http/RetryStrategy.js';
-import CloudflareBypass from './http/CloudflareBypass.js';
-import { CloudflareError, RateLimitError } from './http/errors/index.js';
-import logger, { LogLevel } from './http/Logger.js';
-import { LoggingInterceptor, DebugInterceptor } from './http/interceptors/index.js';
+import EnhancedHttpClient from "./http/EnhancedHttpClient.js";
+import RequestFingerprinter from "./http/RequestFingerprinter.js";
+import ErrorHandler from "./http/ErrorHandler.js";
+import RetryStrategy from "./http/RetryStrategy.js";
+import CloudflareBypass from "./http/CloudflareBypass.js";
+import { CloudflareError, RateLimitError } from "./http/errors/index.js";
+import logger, { LogLevel } from "./http/Logger.js";
+import {
+  LoggingInterceptor,
+  DebugInterceptor,
+} from "./http/interceptors/index.js";
 
 // Import browser compatibility components
-import CryptoPolyfill from './http/utils/CryptoPolyfill.js';
-import EnvironmentDetector from './http/utils/EnvironmentDetector.js';
+import CryptoPolyfill from "./http/utils/CryptoPolyfill.js";
+import EnvironmentDetector from "./http/utils/EnvironmentDetector.js";
 
 // Default retry configuration
 const DEFAULT_RETRY_CONFIG = {
@@ -32,7 +39,7 @@ const DEFAULT_RETRY_CONFIG = {
 /**
  * TestluyPaymentSDK - SDK for integrating with the Testluy Payment Simulator API.
  * Enhanced with Cloudflare resilience and improved error handling.
- * 
+ *
  * @class
  * @param {object} options - Configuration options.
  * @param {string} options.clientId - Your Testluy application client ID.
@@ -63,7 +70,7 @@ class TestluyPaymentSDK {
         "TestluyPaymentSDK: Client ID and Secret Key are required."
       );
     }
-    
+
     // Ensure baseUrl doesn't end with a slash
     this.baseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
     if (
@@ -74,7 +81,7 @@ class TestluyPaymentSDK {
         `TestluyPaymentSDK Warning: Base URL "${this.baseUrl}" might be invalid. Ensure it includes http:// or https://`
       );
     }
-    
+
     this.clientId = clientId;
     this.secretKey = secretKey;
     this.isValidated = false; // State to track if validateCredentials was successful
@@ -91,7 +98,7 @@ class TestluyPaymentSDK {
       ...DEFAULT_RETRY_CONFIG,
       ...(options.retryConfig || {}),
     };
-    
+
     // Set up Cloudflare resilience configuration - enabled by default with all features
     this.cloudflareConfig = {
       enabled: true,
@@ -100,14 +107,14 @@ class TestluyPaymentSDK {
       addTimingVariation: true,
       ...(options.cloudflareConfig || {}),
     };
-    
+
     // Set up logging configuration
     this.loggingConfig = {
-      level: 'warn',
+      level: "warn",
       includeHeaders: false,
       includeBody: false,
       maskSensitive: true,
-      format: 'text',
+      format: "text",
       colorize: true,
       ...(options.loggingConfig || {}),
     };
@@ -119,37 +126,40 @@ class TestluyPaymentSDK {
       resetAt: null,
       currentPlan: null,
     };
-    
+
     // Initialize enhanced HTTP components
     this._initializeHttpClient();
   }
-  
+
   /**
    * Initializes the enhanced HTTP client with interceptors for Cloudflare resilience
-   * 
+   *
    * @private
    */
   _initializeHttpClient() {
     // Initialize environment detection
     this.environmentInfo = EnvironmentDetector.getEnvironmentInfo();
-    logger.info('TestluyPaymentSDK: Environment detected', this.environmentInfo);
-    
+    logger.info(
+      "TestluyPaymentSDK: Environment detected",
+      this.environmentInfo
+    );
+
     // Initialize crypto polyfill
     this.cryptoPolyfill = CryptoPolyfill;
-    
+
     // Initialize Cloudflare bypass module
     this.cloudflareBypass = new CloudflareBypass(this.cloudflareConfig);
-    
+
     // Configure logger based on options
     if (this.loggingConfig) {
       logger.updateConfig({
-        level: this.loggingConfig.level || 'warn',
+        level: this.loggingConfig.level || "warn",
         maskSensitive: this.loggingConfig.maskSensitive !== false,
-        format: this.loggingConfig.format || 'text',
-        colorize: this.loggingConfig.colorize !== false
+        format: this.loggingConfig.format || "text",
+        colorize: this.loggingConfig.colorize !== false,
       });
     }
-    
+
     // Create retry strategy
     this.retryStrategy = new RetryStrategy({
       maxRetries: this.retryConfig.maxRetries,
@@ -158,34 +168,37 @@ class TestluyPaymentSDK {
       backoffFactor: this.retryConfig.backoffFactor,
       jitterFactor: this.retryConfig.jitterFactor,
     });
-    
-    // Create error handler
-    this.errorHandler = new ErrorHandler({
-      retryStrategy: this.retryStrategy,
-      onError: (error) => {
-        logger.error(`TestluyPaymentSDK: Request error: ${error.message}`);
-      },
-      onRetry: ({ attempt, delay }) => {
-        logger.warn(`TestluyPaymentSDK: Retrying request (${attempt}/${this.retryConfig.maxRetries}) after ${delay}ms`);
-      },
-      onRecovery: () => {
-        logger.info('TestluyPaymentSDK: Request recovered successfully');
-      }
-    });
-    
+
     // Create request fingerprinter for browser-like headers
     this.requestFingerprinter = new RequestFingerprinter();
-    
-    // Create enhanced HTTP client
+
+    // Create enhanced HTTP client first
     this.httpClient = new EnhancedHttpClient({
       baseUrl: this.baseUrl,
       timeout: 30000, // 30 seconds
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
     });
-    
+
+    // Create error handler and pass HTTP adapter reference for retry operations
+    this.errorHandler = new ErrorHandler({
+      retryStrategy: this.retryStrategy,
+      httpAdapter: this.httpClient, // Pass HTTP client reference for retry operations
+      onError: (error) => {
+        logger.error(`TestluyPaymentSDK: Request error: ${error.message}`);
+      },
+      onRetry: ({ attempt, delay }) => {
+        logger.warn(
+          `TestluyPaymentSDK: Retrying request (${attempt}/${this.retryConfig.maxRetries}) after ${delay}ms`
+        );
+      },
+      onRecovery: () => {
+        logger.info("TestluyPaymentSDK: Request recovered successfully");
+      },
+    });
+
     // Add request interceptor for authentication
     this.httpClient.addRequestInterceptor({
       onRequest: async (config) => {
@@ -195,23 +208,25 @@ class TestluyPaymentSDK {
           config.url,
           config.data
         );
-        
+
         // Merge headers
         return {
           ...config,
           headers: {
             ...config.headers,
-            ...authHeaders
-          }
+            ...authHeaders,
+          },
         };
-      }
+      },
     });
-    
+
     // Add Cloudflare bypass interceptor
     if (this.cloudflareConfig.enabled) {
-      this.httpClient.addRequestInterceptor(this.cloudflareBypass.createRequestInterceptor());
+      this.httpClient.addRequestInterceptor(
+        this.cloudflareBypass.createRequestInterceptor()
+      );
     }
-    
+
     // Add response interceptor for rate limit tracking
     this.httpClient.addResponseInterceptor({
       onResponse: (response) => {
@@ -233,24 +248,28 @@ class TestluyPaymentSDK {
             parseInt(response.headers["x-ratelimit-reset"], 10) * 1000
           );
         }
-        
+
         return response;
-      }
+      },
     });
-    
+
     // Add error interceptor for handling errors
-    this.httpClient.addErrorInterceptor(this.errorHandler.createErrorInterceptor());
-    
+    this.httpClient.addErrorInterceptor(
+      this.errorHandler.createErrorInterceptor()
+    );
+
     // Add logging interceptor if logging is enabled
     if (this.loggingConfig) {
       // Enable metrics in logger if debug level is enabled
-      const enableMetrics = this.loggingConfig.level === 'debug' || this.loggingConfig.enableMetrics;
-      
+      const enableMetrics =
+        this.loggingConfig.level === "debug" ||
+        this.loggingConfig.enableMetrics;
+
       // Update logger configuration to enable metrics if needed
       if (enableMetrics) {
         logger.updateConfig({ enableMetrics: true });
       }
-      
+
       const loggingInterceptor = new LoggingInterceptor({
         logRequests: true,
         logResponses: true,
@@ -259,30 +278,33 @@ class TestluyPaymentSDK {
         includeBody: this.loggingConfig.includeBody || false,
         includeStack: this.loggingConfig.includeStack || false,
         enableMetrics: enableMetrics,
-        logger: logger
+        logger: logger,
       });
-      
+
       this.httpClient.addRequestInterceptor(loggingInterceptor);
       this.httpClient.addResponseInterceptor(loggingInterceptor);
       this.httpClient.addErrorInterceptor(loggingInterceptor);
-      
-      logger.info('TestluyPaymentSDK: Logging interceptor configured with metrics:', { enableMetrics });
-      
+
+      logger.info(
+        "TestluyPaymentSDK: Logging interceptor configured with metrics:",
+        { enableMetrics }
+      );
+
       // Add debug interceptor for advanced debugging and monitoring
       this.debugInterceptor = new DebugInterceptor({
         enabled: enableMetrics,
         trackPerformance: enableMetrics,
-        logRequests: this.loggingConfig.level === 'debug',
+        logRequests: this.loggingConfig.level === "debug",
         includeHeaders: this.loggingConfig.includeHeaders || false,
         includeBody: this.loggingConfig.includeBody || false,
-        maskSensitive: this.loggingConfig.maskSensitive !== false
+        maskSensitive: this.loggingConfig.maskSensitive !== false,
       });
-      
+
       this.httpClient.addRequestInterceptor(this.debugInterceptor);
       this.httpClient.addResponseInterceptor(this.debugInterceptor);
       this.httpClient.addErrorInterceptor(this.debugInterceptor);
-      
-      logger.info('TestluyPaymentSDK: Debug interceptor configured');
+
+      logger.info("TestluyPaymentSDK: Debug interceptor configured");
     }
   }
 
@@ -295,15 +317,19 @@ class TestluyPaymentSDK {
   _getApiPath(endpoint) {
     // Handle null or undefined endpoint
     if (!endpoint) {
-      logger.error('TestluyPaymentSDK: Invalid endpoint - cannot be null or undefined');
-      throw new Error('Invalid endpoint - cannot be null or undefined');
+      logger.error(
+        "TestluyPaymentSDK: Invalid endpoint - cannot be null or undefined"
+      );
+      throw new Error("Invalid endpoint - cannot be null or undefined");
     }
-    
+
     // Ensure endpoint doesn't start with a slash
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-    
+    const cleanEndpoint = endpoint.startsWith("/")
+      ? endpoint.slice(1)
+      : endpoint;
+
     // Check if the endpoint already includes 'api/' prefix to avoid duplication
-    if (cleanEndpoint.startsWith('api/')) {
+    if (cleanEndpoint.startsWith("api/")) {
       // If endpoint already has api/ prefix, don't add it again
       const finalPath = `/${cleanEndpoint}`;
       logger.info(
@@ -311,13 +337,13 @@ class TestluyPaymentSDK {
       );
       return finalPath;
     }
-    
+
     // Add api/ prefix if needed
     const path = this.useApiPrefix ? `api/${cleanEndpoint}` : cleanEndpoint;
-    
+
     // Ensure path starts with a slash
-    const finalPath = path.startsWith('/') ? path : `/${path}`;
-    
+    const finalPath = path.startsWith("/") ? path : `/${path}`;
+
     logger.info(
       `TestluyPaymentSDK: Generated API path: ${finalPath} (from endpoint: ${endpoint})`
     );
@@ -344,7 +370,7 @@ class TestluyPaymentSDK {
 
     // Remove the leading slash from the path for signature generation
     // This is important because the API expects the path without a leading slash
-    const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
 
     const stringToSign =
       method + "\n" + cleanPath + "\n" + timestamp + "\n" + bodyString;
@@ -355,7 +381,7 @@ class TestluyPaymentSDK {
         this.secretKey,
         stringToSign
       );
-      
+
       return signature;
     } catch (error) {
       console.error("TestluyPaymentSDK: Error generating signature:", error);
@@ -380,14 +406,14 @@ class TestluyPaymentSDK {
         timestamp,
         body
       );
-      
+
       // Basic auth headers
       const headers = {
         "X-Client-ID": this.clientId,
         "X-Timestamp": timestamp,
         "X-Signature": signature,
       };
-      
+
       return headers;
     } catch (error) {
       throw error;
@@ -407,54 +433,71 @@ class TestluyPaymentSDK {
     try {
       // Validate path before making the request
       if (!path) {
-        throw new Error('Invalid API path: path cannot be empty');
+        throw new Error("Invalid API path: path cannot be empty");
       }
-      
+
       // Validate that the path is properly formatted
-      if (!path.startsWith('/')) {
-        logger.warn(`TestluyPaymentSDK: API path "${path}" doesn't start with a slash, adding one`);
+      if (!path.startsWith("/")) {
+        logger.warn(
+          `TestluyPaymentSDK: API path "${path}" doesn't start with a slash, adding one`
+        );
         path = `/${path}`;
       }
-      
+
       // Ensure the path includes the /api/ prefix if useApiPrefix is true
-      if (this.useApiPrefix && !path.includes('/api/')) {
-        logger.warn(`TestluyPaymentSDK: API path "${path}" is missing /api/ prefix, it may not work correctly`);
+      if (this.useApiPrefix && !path.includes("/api/")) {
+        logger.warn(
+          `TestluyPaymentSDK: API path "${path}" is missing /api/ prefix, it may not work correctly`
+        );
       }
-      
+
       // Validate that the combination of baseUrl and path will create a valid URL
       try {
         const testUrl = new URL(path, this.baseUrl);
-        logger.debug(`TestluyPaymentSDK: URL validation passed for: ${testUrl.toString()}`);
+        logger.debug(
+          `TestluyPaymentSDK: URL validation passed for: ${testUrl.toString()}`
+        );
       } catch (urlValidationError) {
-        logger.error(`TestluyPaymentSDK: URL validation failed for baseUrl="${this.baseUrl}" and path="${path}": ${urlValidationError.message}`);
-        throw new Error(`Invalid URL combination: baseUrl="${this.baseUrl}" and path="${path}". ${urlValidationError.message}`);
+        logger.error(
+          `TestluyPaymentSDK: URL validation failed for baseUrl="${this.baseUrl}" and path="${path}": ${urlValidationError.message}`
+        );
+        throw new Error(
+          `Invalid URL combination: baseUrl="${this.baseUrl}" and path="${path}". ${urlValidationError.message}`
+        );
       }
-      
+
       // Make the API request using the enhanced HTTP client
       const response = await this.httpClient.request({
         method: method,
         url: path,
-        data: method !== "GET" ? body : undefined
+        data: method !== "GET" ? body : undefined,
       });
-      
+
       return response;
     } catch (error) {
       // Handle URL construction errors
-      if (error.message && (
-          error.message.includes('Invalid URL') || 
-          error.message.includes('Failed to construct') ||
-          error.message.includes('URL cannot be null')
-      )) {
-        logger.error(`TestluyPaymentSDK: URL construction error: ${error.message}`);
-        logger.error(`TestluyPaymentSDK: Attempted path: "${path}", baseUrl: "${this.baseUrl}"`);
-        throw new Error(`URL construction error: ${error.message}. Please check your baseUrl and endpoint path.`);
+      if (
+        error.message &&
+        (error.message.includes("Invalid URL") ||
+          error.message.includes("Failed to construct") ||
+          error.message.includes("URL cannot be null"))
+      ) {
+        logger.error(
+          `TestluyPaymentSDK: URL construction error: ${error.message}`
+        );
+        logger.error(
+          `TestluyPaymentSDK: Attempted path: "${path}", baseUrl: "${this.baseUrl}"`
+        );
+        throw new Error(
+          `URL construction error: ${error.message}. Please check your baseUrl and endpoint path.`
+        );
       }
-      
+
       // Handle specific error types
       if (error instanceof RateLimitError) {
         const guidance = error.getRetryGuidance();
         const errorMessage = `Rate limit exceeded. ${guidance.recommendedAction}`;
-        
+
         // Create a more informative error
         const rateLimitError = new Error(errorMessage);
         rateLimitError.isRateLimitError = true;
@@ -464,16 +507,16 @@ class TestluyPaymentSDK {
       } else if (error instanceof CloudflareError) {
         const guidance = error.getChallengeGuidance();
         const errorMessage = `Cloudflare protection encountered. ${guidance.recommendedAction}`;
-        
+
         // Create a more informative error
         const cloudflareError = new Error(errorMessage);
         cloudflareError.isCloudflareError = true;
         cloudflareError.challengeType = guidance.challengeType;
         throw cloudflareError;
       }
-      
+
       // For other errors, format and throw
-      const errorMessage = error.message || 'Unknown error';
+      const errorMessage = error.message || "Unknown error";
       console.error(`TestluyPaymentSDK: API request failed: ${errorMessage}`);
       throw new Error(`API request failed: ${errorMessage}`);
     }
@@ -753,7 +796,7 @@ class TestluyPaymentSDK {
 
   /**
    * Gets current performance metrics and statistics
-   * 
+   *
    * @returns {Object} Performance metrics including request counts, response times, and error statistics
    * @example
    * const metrics = sdk.getPerformanceMetrics();
@@ -766,7 +809,7 @@ class TestluyPaymentSDK {
 
   /**
    * Gets troubleshooting suggestions based on encountered issues
-   * 
+   *
    * @returns {Array} Array of troubleshooting suggestions sorted by priority and frequency
    * @example
    * const suggestions = sdk.getTroubleshootingSuggestions();
@@ -780,7 +823,7 @@ class TestluyPaymentSDK {
 
   /**
    * Generates a comprehensive diagnostic report with metrics, issues, and recommendations
-   * 
+   *
    * @returns {Object} Diagnostic report containing summary, issues, recommendations, and configuration
    * @example
    * const report = sdk.generateDiagnosticReport();
@@ -792,7 +835,7 @@ class TestluyPaymentSDK {
 
   /**
    * Logs current performance metrics summary to console
-   * 
+   *
    * @example
    * sdk.logMetricsSummary(); // Outputs metrics summary to console
    */
@@ -802,7 +845,7 @@ class TestluyPaymentSDK {
 
   /**
    * Logs troubleshooting suggestions to console
-   * 
+   *
    * @example
    * sdk.logTroubleshootingSuggestions(); // Outputs suggestions to console
    */
@@ -812,7 +855,7 @@ class TestluyPaymentSDK {
 
   /**
    * Logs a comprehensive diagnostic report to console
-   * 
+   *
    * @example
    * sdk.logDiagnosticReport(); // Outputs full diagnostic report to console
    */
@@ -822,7 +865,7 @@ class TestluyPaymentSDK {
 
   /**
    * Resets all performance metrics and troubleshooting data
-   * 
+   *
    * @example
    * sdk.resetMetrics(); // Clears all collected metrics and starts fresh
    */
@@ -832,24 +875,27 @@ class TestluyPaymentSDK {
 
   /**
    * Enables or disables performance metrics tracking
-   * 
+   *
    * @param {boolean} enabled - Whether to enable metrics tracking
    * @example
    * sdk.setMetricsEnabled(true); // Enable detailed performance tracking
    */
   setMetricsEnabled(enabled) {
     logger.updateConfig({ enableMetrics: enabled });
-    
+
     // Update logging interceptor if it exists
     if (this.loggingConfig) {
       this.loggingConfig.enableMetrics = enabled;
-      logger.info('TestluyPaymentSDK: Metrics tracking', enabled ? 'enabled' : 'disabled');
-      
+      logger.info(
+        "TestluyPaymentSDK: Metrics tracking",
+        enabled ? "enabled" : "disabled"
+      );
+
       // Update debug interceptor if it exists
       if (this.debugInterceptor) {
         this.debugInterceptor.updateConfig({
           enabled: enabled,
-          trackPerformance: enabled
+          trackPerformance: enabled,
         });
       }
     }
@@ -857,7 +903,7 @@ class TestluyPaymentSDK {
 
   /**
    * Updates logging configuration
-   * 
+   *
    * @param {Object} config - Logging configuration options
    * @param {string} [config.level] - Log level (debug, info, warn, error, silent)
    * @param {boolean} [config.includeHeaders] - Whether to include headers in logs
@@ -876,34 +922,36 @@ class TestluyPaymentSDK {
     if (config) {
       Object.assign(this.loggingConfig, config);
     }
-    
+
     // Update logger configuration
     logger.updateConfig({
       level: this.loggingConfig.level,
       includeHeaders: this.loggingConfig.includeHeaders,
       includeBody: this.loggingConfig.includeBody,
       maskSensitive: this.loggingConfig.maskSensitive,
-      enableMetrics: this.loggingConfig.enableMetrics
+      enableMetrics: this.loggingConfig.enableMetrics,
     });
-    
+
     // Update debug interceptor if it exists
     if (this.debugInterceptor) {
       this.debugInterceptor.updateConfig({
-        enabled: this.loggingConfig.enableMetrics || this.loggingConfig.level === 'debug',
+        enabled:
+          this.loggingConfig.enableMetrics ||
+          this.loggingConfig.level === "debug",
         trackPerformance: this.loggingConfig.enableMetrics,
-        logRequests: this.loggingConfig.level === 'debug',
+        logRequests: this.loggingConfig.level === "debug",
         includeHeaders: this.loggingConfig.includeHeaders,
         includeBody: this.loggingConfig.includeBody,
-        maskSensitive: this.loggingConfig.maskSensitive
+        maskSensitive: this.loggingConfig.maskSensitive,
       });
     }
-    
-    logger.info('TestluyPaymentSDK: Logging configuration updated', config);
+
+    logger.info("TestluyPaymentSDK: Logging configuration updated", config);
   }
-  
+
   /**
    * Gets advanced performance metrics from the debug monitor
-   * 
+   *
    * @returns {Object} Detailed performance metrics by endpoint and status code
    * @example
    * const advancedMetrics = sdk.getAdvancedMetrics();
@@ -911,15 +959,15 @@ class TestluyPaymentSDK {
    */
   getAdvancedMetrics() {
     if (!this.debugInterceptor) {
-      return { enabled: false, message: 'Debug interceptor not enabled' };
+      return { enabled: false, message: "Debug interceptor not enabled" };
     }
-    
+
     return this.debugInterceptor.getPerformanceMetrics();
   }
-  
+
   /**
    * Gets advanced troubleshooting suggestions from the debug monitor
-   * 
+   *
    * @returns {Array} Array of troubleshooting suggestions with detailed context
    * @example
    * const advancedSuggestions = sdk.getAdvancedTroubleshootingSuggestions();
@@ -929,13 +977,13 @@ class TestluyPaymentSDK {
     if (!this.debugInterceptor) {
       return [];
     }
-    
+
     return this.debugInterceptor.getTroubleshootingSuggestions();
   }
-  
+
   /**
    * Generates a comprehensive diagnostic report with detailed metrics and recommendations
-   * 
+   *
    * @returns {Object} Detailed diagnostic report with endpoint-specific metrics
    * @example
    * const advancedReport = sdk.generateAdvancedDiagnosticReport();
@@ -947,16 +995,16 @@ class TestluyPaymentSDK {
       return {
         timestamp: new Date().toISOString(),
         enabled: false,
-        message: 'Debug interceptor not enabled'
+        message: "Debug interceptor not enabled",
       };
     }
-    
+
     return this.debugInterceptor.createDiagnosticReport();
   }
-  
+
   /**
    * Enables advanced debugging features for troubleshooting
-   * 
+   *
    * @param {Object} [options={}] - Debug options
    * @param {boolean} [options.trackPerformance=true] - Whether to track detailed performance metrics
    * @param {boolean} [options.logRequests=true] - Whether to log all requests and responses
@@ -973,17 +1021,17 @@ class TestluyPaymentSDK {
       trackPerformance: options.trackPerformance !== false,
       logRequests: options.logRequests !== false,
       includeHeaders: options.includeHeaders || false,
-      includeBody: options.includeBody || false
+      includeBody: options.includeBody || false,
     };
-    
+
     // Update logging config
     this.updateLoggingConfig({
-      level: 'debug',
+      level: "debug",
       includeHeaders: debugOptions.includeHeaders,
       includeBody: debugOptions.includeBody,
-      enableMetrics: true
+      enableMetrics: true,
     });
-    
+
     // Update debug interceptor if it exists
     if (this.debugInterceptor) {
       this.debugInterceptor.updateConfig({
@@ -991,50 +1039,53 @@ class TestluyPaymentSDK {
         trackPerformance: debugOptions.trackPerformance,
         logRequests: debugOptions.logRequests,
         includeHeaders: debugOptions.includeHeaders,
-        includeBody: debugOptions.includeBody
+        includeBody: debugOptions.includeBody,
       });
-      
-      logger.info('TestluyPaymentSDK: Advanced debugging enabled', debugOptions);
+
+      logger.info(
+        "TestluyPaymentSDK: Advanced debugging enabled",
+        debugOptions
+      );
     } else {
-      logger.warn('TestluyPaymentSDK: Debug interceptor not available');
+      logger.warn("TestluyPaymentSDK: Debug interceptor not available");
     }
-    
+
     return {
       enabled: true,
-      ...debugOptions
+      ...debugOptions,
     };
   }
-  
+
   /**
    * Disables advanced debugging features
-   * 
+   *
    * @example
    * sdk.disableDebugging();
    */
   disableDebugging() {
     // Update logging config back to defaults
     this.updateLoggingConfig({
-      level: 'warn',
+      level: "warn",
       includeHeaders: false,
       includeBody: false,
-      enableMetrics: false
+      enableMetrics: false,
     });
-    
+
     // Update debug interceptor if it exists
     if (this.debugInterceptor) {
       this.debugInterceptor.updateConfig({
         enabled: false,
         trackPerformance: false,
-        logRequests: false
+        logRequests: false,
       });
-      
-      logger.info('TestluyPaymentSDK: Advanced debugging disabled');
+
+      logger.info("TestluyPaymentSDK: Advanced debugging disabled");
     }
   }
-  
+
   /**
    * Gets information about the current runtime environment
-   * 
+   *
    * @returns {Object} Environment information including browser/Node.js details and feature support
    * @example
    * const envInfo = sdk.getEnvironmentInfo();
@@ -1046,10 +1097,10 @@ class TestluyPaymentSDK {
   getEnvironmentInfo() {
     return this.environmentInfo || EnvironmentDetector.getEnvironmentInfo();
   }
-  
+
   /**
    * Checks if the current environment requires polyfills
-   * 
+   *
    * @returns {Object} Object containing required polyfills
    * @example
    * const requiredPolyfills = sdk.getRequiredPolyfills();
@@ -1099,7 +1150,7 @@ class TestluyPaymentSDK {
 
       return responseData.payment_url;
     } catch (error) {
-      const errorMessage = error.message || 'Unknown error';
+      const errorMessage = error.message || "Unknown error";
       console.error(
         "TestluyPaymentSDK: Generate payment URL error:",
         errorMessage
