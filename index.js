@@ -7,6 +7,12 @@ import {
   validateTransactionId,
 } from "./validation.js";
 
+// Import enhanced HTTP components for retry mechanism
+import EnhancedHttpClient from "./http/EnhancedHttpClient.js";
+import ErrorHandler from "./http/ErrorHandler.js";
+import RetryStrategy from "./http/RetryStrategy.js";
+import { RateLimitError, CloudflareError } from "./http/errors/index.js";
+
 // Default retry configuration
 const DEFAULT_RETRY_CONFIG = {
   maxRetries: 3,
@@ -72,6 +78,57 @@ class TestluyPaymentSDK {
       resetAt: null,
       currentPlan: null,
     };
+
+    // Initialize enhanced HTTP client and error handler for retry mechanism
+    this._initializeEnhancedRetryMechanism();
+  }
+
+  /**
+   * Initializes the enhanced HTTP client and error handler for retry mechanism
+   * @private
+   */
+  _initializeEnhancedRetryMechanism() {
+    // Create retry strategy
+    this.retryStrategy = new RetryStrategy({
+      maxRetries: this.retryConfig.maxRetries,
+      baseDelay: this.retryConfig.initialDelayMs,
+      maxDelay: this.retryConfig.maxDelayMs,
+      backoffFactor: this.retryConfig.backoffFactor,
+    });
+
+    // Create enhanced HTTP client
+    this.enhancedHttpClient = new EnhancedHttpClient({
+      baseUrl: this.baseUrl,
+      timeout: 30000, // 30 seconds
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+
+    // Create error handler with HTTP adapter reference for retry operations
+    this.errorHandler = new ErrorHandler({
+      retryStrategy: this.retryStrategy,
+      httpAdapter: this.enhancedHttpClient, // Pass HTTP client reference for retry operations
+      onError: (error) => {
+        logger.error(`TestluyPaymentSDK: Request error: ${error.message}`);
+      },
+      onRetry: ({ attempt, delay }) => {
+        logger.warn(
+          `TestluyPaymentSDK: Retrying request (${attempt}/${this.retryConfig.maxRetries}) after ${delay}ms`
+        );
+      },
+      onRecovery: () => {
+        logger.info("TestluyPaymentSDK: Request recovered successfully");
+      },
+    });
+
+    // Add error interceptor to enhanced HTTP client
+    this.enhancedHttpClient.addErrorInterceptor(
+      this.errorHandler.createErrorInterceptor()
+    );
+
+    logger.info("TestluyPaymentSDK: Enhanced retry mechanism initialized");
   }
 
   /**
@@ -178,7 +235,194 @@ class TestluyPaymentSDK {
   }
 
   /**
+   * Makes an API request using the enhanced HTTP client with retry mechanism
+   * @private
+   * @param {string} method - HTTP method (GET, POST, etc.).
+   * @param {string} path - API endpoint path.
+   * @param {object} [body={}] - Request body for POST/PUT requests.
+   * @returns {Promise<object>} The API response data.
+   * @throws {Error} If the request fails.
+   */
+  async _makeRequest(method, path, body = {}) {
+    try {
+      // Validate path before making the request
+      if (!path) {
+        throw new Error("Invalid API path: path cannot be empty");
+      }
+
+      // Validate that the path is properly formatted
+      if (!path.startsWith("/")) {
+        logger.warn(
+          `TestluyPaymentSDK: API path "${path}" doesn't start with a slash, adding one`
+        );
+        path = `/${path}`;
+      }
+
+      // Ensure the path includes the /api/ prefix if useApiPrefix is true
+      if (this.useApiPrefix && !path.includes("/api/")) {
+        logger.warn(
+          `TestluyPaymentSDK: API path "${path}" is missing /api/ prefix, it may not work correctly`
+        );
+      }
+
+      // Create retry context for URL validation
+      const retryContext = {
+        originalUrl: `${this.baseUrl}${path}`,
+        baseUrl: this.baseUrl,
+        endpoint: path,
+        method: method,
+        timestamp: new Date().toISOString(),
+        useApiPrefix: this.useApiPrefix,
+      };
+
+      // Validate that the combination of baseUrl and path will create a valid URL
+      try {
+        const testUrl = new URL(path, this.baseUrl);
+        logger.debug(
+          `TestluyPaymentSDK: URL validation passed for: ${testUrl.toString()}`
+        );
+        retryContext.validatedUrl = testUrl.toString();
+        retryContext.urlValidationSteps = [
+          `Base URL: "${this.baseUrl}"`,
+          `Path: "${path}"`,
+          `Combined URL: "${testUrl.toString()}"`,
+          "URL validation: SUCCESS"
+        ];
+      } catch (urlValidationError) {
+        logger.error(
+          `TestluyPaymentSDK: URL validation failed for baseUrl="${this.baseUrl}" and path="${path}": ${urlValidationError.message}`
+        );
+        
+        retryContext.urlValidationSteps = [
+          `Base URL: "${this.baseUrl}"`,
+          `Path: "${path}"`,
+          `URL validation: FAILED - ${urlValidationError.message}`
+        ];
+        
+        const enhancedError = new Error(
+          `Invalid URL combination: baseUrl="${this.baseUrl}" and path="${path}". ${urlValidationError.message}`
+        );
+        enhancedError.retryContext = retryContext;
+        enhancedError.urlConstructionSteps = retryContext.urlValidationSteps;
+        throw enhancedError;
+      }
+
+      // Add authentication headers using enhanced method
+      const authHeaders = await this._getAuthHeaders(method, path, body);
+
+      // Make the API request using the enhanced HTTP client
+      const response = await this.enhancedHttpClient.request({
+        method: method,
+        url: path,
+        data: method !== "GET" ? body : undefined,
+        headers: authHeaders,
+        retryContext: retryContext, // Pass retry context for debugging
+      });
+
+      // Update rate limit info from headers if available
+      if (response.headers) {
+        if (response.headers["x-ratelimit-limit"]) {
+          this.rateLimitInfo.limit = parseInt(
+            response.headers["x-ratelimit-limit"],
+            10
+          );
+        }
+        if (response.headers["x-ratelimit-remaining"]) {
+          this.rateLimitInfo.remaining = parseInt(
+            response.headers["x-ratelimit-remaining"],
+            10
+          );
+        }
+        if (response.headers["x-ratelimit-reset"]) {
+          this.rateLimitInfo.resetAt = new Date(
+            parseInt(response.headers["x-ratelimit-reset"], 10) * 1000
+          );
+        }
+      }
+
+      return response;
+    } catch (error) {
+      // Handle URL construction errors with enhanced error reporting
+      if (
+        error.message &&
+        (error.message.includes("Invalid URL") ||
+          error.message.includes("Failed to construct") ||
+          error.message.includes("URL cannot be null"))
+      ) {
+        logger.error(
+          `TestluyPaymentSDK: URL construction error: ${error.message}`
+        );
+        logger.error(
+          `TestluyPaymentSDK: Attempted path: "${path}", baseUrl: "${this.baseUrl}"`
+        );
+        
+        // Add enhanced error context
+        error.errorContext = {
+          path,
+          baseUrl: this.baseUrl,
+          method,
+          useApiPrefix: this.useApiPrefix,
+          retryContext: error.retryContext,
+          urlConstructionSteps: error.urlConstructionSteps || [],
+        };
+        
+        throw new Error(
+          `URL construction error: ${error.message}. Please check your baseUrl and endpoint path.`
+        );
+      }
+
+      // Handle specific error types with enhanced error reporting
+      if (error instanceof RateLimitError) {
+        const guidance = error.getRetryGuidance();
+        const errorMessage = `Rate limit exceeded. ${guidance.recommendedAction}`;
+
+        // Create a more informative error
+        const rateLimitError = new Error(errorMessage);
+        rateLimitError.isRateLimitError = true;
+        rateLimitError.rateLimitInfo = { ...this.rateLimitInfo };
+        rateLimitError.retryAfter = guidance.retryAfter;
+        rateLimitError.errorContext = {
+          path,
+          method,
+          retryContext: error.retryContext,
+        };
+        throw rateLimitError;
+      } else if (error instanceof CloudflareError) {
+        const guidance = error.getChallengeGuidance();
+        const errorMessage = `Cloudflare protection encountered. ${guidance.recommendedAction}`;
+
+        // Create a more informative error
+        const cloudflareError = new Error(errorMessage);
+        cloudflareError.isCloudflareError = true;
+        cloudflareError.challengeType = guidance.challengeType;
+        cloudflareError.errorContext = {
+          path,
+          method,
+          retryContext: error.retryContext,
+        };
+        throw cloudflareError;
+      }
+
+      // For other errors, format and throw with enhanced context
+      const errorMessage = error.message || "Unknown error";
+      logger.error(`TestluyPaymentSDK: API request failed: ${errorMessage}`);
+      
+      // Add error context for debugging
+      error.errorContext = {
+        path,
+        method,
+        baseUrl: this.baseUrl,
+        retryContext: error.retryContext,
+        urlConstructionSteps: error.urlConstructionSteps || [],
+      };
+      
+      throw new Error(`API request failed: ${errorMessage}`);
+    }
+  }
+
+  /**
    * Makes an API request with automatic retry on rate limit errors.
+   * @deprecated Use _makeRequest instead for enhanced retry mechanism
    * @private
    * @param {string} method - HTTP method (GET, POST, etc.).
    * @param {string} path - API endpoint path.
@@ -370,8 +614,8 @@ class TestluyPaymentSDK {
         ...(backUrl && { back_url: backUrl }),
       };
 
-      // Use the retry mechanism for this request
-      const responseData = await this._makeRequestWithRetry("POST", path, body);
+      // Use the enhanced retry mechanism for this request
+      const responseData = await this._makeRequest("POST", path, body);
 
       const { payment_url, transaction_id } = responseData;
 
@@ -394,10 +638,11 @@ class TestluyPaymentSDK {
         throw new Error(`Failed to initiate payment: ${error.message}`);
       }
 
-      // If it's already a formatted error from _makeRequestWithRetry, just rethrow with context
+      // If it's already a formatted error from _makeRequest, just rethrow with context
       if (
         error.message.startsWith("API request failed:") ||
-        error.isRateLimitError
+        error.isRateLimitError ||
+        error.isCloudflareError
       ) {
         throw new Error(`Failed to initiate payment: ${error.message}`);
       }
@@ -426,8 +671,8 @@ class TestluyPaymentSDK {
         `payment-simulator/status/${transactionId}`
       );
 
-      // Use the retry mechanism for this request
-      const responseData = await this._makeRequestWithRetry("GET", path);
+      // Use the enhanced retry mechanism for this request
+      const responseData = await this._makeRequest("GET", path);
 
       // Verify response structure
       if (!responseData || !responseData.status) {
@@ -445,10 +690,11 @@ class TestluyPaymentSDK {
         throw new Error(`Failed to get payment status: ${error.message}`);
       }
 
-      // If it's already a formatted error from _makeRequestWithRetry, just rethrow with context
+      // If it's already a formatted error from _makeRequest, just rethrow with context
       if (
         error.message.startsWith("API request failed:") ||
-        error.isRateLimitError
+        error.isRateLimitError ||
+        error.isCloudflareError
       ) {
         throw new Error(`Failed to get payment status: ${error.message}`);
       }
@@ -473,8 +719,8 @@ class TestluyPaymentSDK {
       const path = this._getApiPath("validate-credentials");
       const body = {}; // Validation endpoint expects an empty body
 
-      // Use the retry mechanism for this request
-      const responseData = await this._makeRequestWithRetry("POST", path, body);
+      // Use the enhanced retry mechanism for this request
+      const responseData = await this._makeRequest("POST", path, body);
 
       // Ensure the response has the expected structure
       if (typeof responseData?.isValid !== "boolean") {
@@ -497,10 +743,11 @@ class TestluyPaymentSDK {
 
       return true; // Only return true if explicitly { isValid: true }
     } catch (error) {
-      // If it's already a formatted error from _makeRequestWithRetry, just rethrow
+      // If it's already a formatted error from _makeRequest, just rethrow
       if (
         error.message.startsWith("API request failed:") ||
-        error.isRateLimitError
+        error.isRateLimitError ||
+        error.isCloudflareError
       ) {
         throw error;
       }
