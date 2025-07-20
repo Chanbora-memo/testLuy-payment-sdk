@@ -205,7 +205,7 @@ async function testUrlConstruction() {
     const sdk = new TestluyPaymentSDK({
       clientId: 'test-client-id',
       secretKey: 'test-secret-key',
-      baseUrl: 'https://testluy.tech'
+      baseUrl: 'https://api-testluy.paragoniu.app'
     });
     
     console.log('✓ SDK created successfully');
@@ -253,9 +253,9 @@ testUrlConstruction();
 Testing URL construction fixes...
 
 ✓ SDK created successfully
-✓ validate-credentials → https://testluy.tech/validate-credentials
-✓ /api/validate-credentials → https://testluy.tech/api/validate-credentials
-✓ api/validate-credentials → https://testluy.tech/api/validate-credentials
+✓ validate-credentials → https://api-testluy.paragoniu.app/validate-credentials
+✓ /api/validate-credentials → https://api-testluy.paragoniu.app/api/validate-credentials
+✓ api/validate-credentials → https://api-testluy.paragoniu.app/api/validate-credentials
 
 ✓ URL validation passed
 ✓ No URL construction errors detected
