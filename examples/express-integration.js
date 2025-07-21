@@ -174,7 +174,7 @@ app.get("/api/payment/callback", ensureSDK, async (req, res) => {
     });
 
     // Verify callback using SDK
-    const verifiedResult = await sdk.verifyCallback(callbackData);
+    const verifiedResult = await sdk.handlePaymentCallback(callbackData);
 
     // Update payment status in database
     await updatePaymentStatus(orderId, {

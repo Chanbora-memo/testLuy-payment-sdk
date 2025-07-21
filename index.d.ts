@@ -353,19 +353,25 @@ export default class TestluyPaymentSDK {
   getPaymentStatus(transactionId: string): Promise<PaymentStatus>;
   
   /**
-   * Securely verifies payment callback data
-   * @param callbackData Callback data received from TestLuy
+   * Processes the data received at the merchant's callback URL after a payment attempt.
+   * It verifies the status by calling `getPaymentStatus`.
+   * @param callbackData Callback data received from TestLuy (should contain transaction_id)
    * @returns Promise with verified payment information
    * @throws {ValidationError} If callback data is invalid
    * @throws {SDKError} If verification fails
    */
-  verifyCallback(callbackData: CallbackData): Promise<CallbackVerificationResult>;
+  handlePaymentCallback(callbackData: CallbackData): Promise<CallbackVerificationResult>;
   
   /**
-   * Alias for verifyCallback for backward compatibility
-   * @deprecated Use verifyCallback instead
+   * Generates only the payment URL for redirecting the user to the sandbox.
+   * @deprecated Use initiatePayment instead for more complete functionality
+   * @param amount Payment amount (must be positive)
+   * @param callbackUrl URL for payment completion callback
+   * @returns Promise with payment URL only
+   * @throws {ValidationError} If parameters are invalid
+   * @throws {SDKError} For API errors
    */
-  handlePaymentCallback(callbackData: CallbackData): Promise<CallbackVerificationResult>;
+  generatePaymentUrl(amount: number, callbackUrl: string): Promise<string>;
   
   /**
    * Manually validates credentials
@@ -441,25 +447,6 @@ export interface ExpressResponse {
   redirect(url: string): void;
   send(data: any): void;
 }
-
-// ================================
-// HELPER FUNCTIONS
-// ================================
-
-/**
- * Utility function to check if an error is retryable
- */
-export function isRetryableError(error: Error): boolean;
-
-/**
- * Utility function to get error severity level
- */
-export function getErrorSeverity(error: Error): 'low' | 'medium' | 'high';
-
-/**
- * Utility function to generate unique request IDs
- */
-export function generateRequestId(): string;
 
 // ================================
 // MODULE EXPORTS

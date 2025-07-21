@@ -375,7 +375,7 @@ async function handlePaymentCallback(callbackData) {
   });
 
   try {
-    const verifiedResult = await sdk.verifyCallback(callbackData);
+    const verifiedResult = await sdk.handlePaymentCallback(callbackData);
 
     console.log("Callback verified successfully:", {
       transactionId: verifiedResult.transactionId,

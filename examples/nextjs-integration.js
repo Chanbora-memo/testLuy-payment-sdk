@@ -180,7 +180,7 @@ export async function GET(request) {
     const callbackData = Object.fromEntries(searchParams);
 
     // Verify callback using SDK
-    const verifiedResult = await sdk.verifyCallback(callbackData);
+    const verifiedResult = await sdk.handlePaymentCallback(callbackData);
 
     const orderId = searchParams.get("orderId");
 

@@ -1,6 +1,6 @@
 {
   "name": "testluy-payment-sdk",
-  "version": "3.8.2",
+  "version": "3.8.3",
   "description": "SDK for TestLuy Payment Simulator with enhanced Cloudflare resilience and Tunnel Zero Trust support",
   "main": "index-enhanced.js",
   "type": "module",

@@ -2,9 +2,6 @@
 
 [![npm version](https://badge.fury.io/js/testluy-payment-sdk.svg)](https://badge.fury.io/js/testluy-payment-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js CI](https://github.com/chanboraseng/testluy-payment-sdk/workflows/Node.js%20CI/badge.svg)](https://github.com/chanboraseng/testluy-payment-sdk/actions)
-
-> **Production-Ready Payment Simulator SDK with Cloudflare Tunnel Zero Trust Support**
 
 ## 🚀 Overview
 
@@ -230,7 +227,7 @@ const status = await sdk.getPaymentStatus('TRX_abc123');
 console.log('Payment status:', status.status); // 'Pending', 'Success', 'Failed'
 ```
 
-#### `async verifyCallback(callbackData)`
+#### `async handlePaymentCallback(callbackData)`
 
 Securely verifies payment callback data to prevent tampering.
 
@@ -244,7 +241,7 @@ Securely verifies payment callback data to prevent tampering.
 // In your callback handler
 app.get('/payment-callback', async (req, res) => {
   try {
-    const verifiedData = await sdk.verifyCallback(req.query);
+    const verifiedData = await sdk.handlePaymentCallback(req.query);
     if (verifiedData.status === 'Success') {
       // Payment successful, fulfill order
       await fulfillOrder(verifiedData.transaction_id);
@@ -327,7 +324,7 @@ router.post('/initiate', async (req, res) => {
 
 router.get('/callback', async (req, res) => {
   try {
-    const verifiedData = await sdk.verifyCallback(req.query);
+    const verifiedData = await sdk.handlePaymentCallback(req.query);
     
     if (verifiedData.status === 'Success') {
       // Update order status in database
@@ -559,15 +556,6 @@ npm test
 # Run specific test suites
 npm run test:unit         # Unit tests only
 npm run test:integration  # Integration tests only
-
-# Run with debug output
-npm run test:debug
-
-# Run browser compatibility tests
-npm run test:browser
-
-# Run logger tests
-npm run test:logger
 ```
 
 ### Test Coverage
@@ -728,7 +716,7 @@ app.post('/payment/initiate', async (req, res) => {
 app.get('/payment/callback', async (req, res) => {
   try {
     // Use SDK's built-in verification
-    const verifiedData = await sdk.verifyCallback(req.query);
+    const verifiedData = await sdk.handlePaymentCallback(req.query);
     
     // Additional server-side validation
     const order = await getOrderById(req.query.order);
@@ -903,9 +891,6 @@ npm test
 # Run specific test suites
 npm run test:unit
 npm run test:integration
-
-# Run with coverage
-npm run test:coverage
 ```
 
 ## 📋 Changelog
@@ -919,8 +904,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Documentation**: [README.md](README.md)
-- **Issues**: [GitHub Issues](https://github.com/chanboraseng/testluy-payment-sdk/issues)
-- **Email**: support@testluy.com
+- **Issues**: [GitHub Issues](https://github.com/Chanbora-memo/testLuy-payment-sdk/issues)
+- **Email**: cseng1@paragoniu.edu.kh
 
 ---
 
