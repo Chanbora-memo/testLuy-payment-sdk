@@ -42,3 +42,51 @@ repomix-output-sdk.xml
 sdk_codebase.xml
 .repomixignore
 repomix-output.txt
+
+# Runtime and temporary files
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+
+# OS-specific files
+Thumbs.db
+*.DS_Store
+.Spotlight-V100
+.Trashes
+
+# Package manager locks (if not needed in repo)
+# package-lock.json  # Usually keep this for SDKs
+# yarn.lock
+
+# Test and benchmark outputs
+benchmark-results/
+performance-logs/
+*.benchmark
+
+# Development debugging files
+test-debugging-monitoring.js
+test-enhanced.js
+debug-output/
+error-logs/
+
+# Generated documentation
+docs-generated/
+api-docs/
+
+# Cloudflare-specific temporary files
+cf-tunnel-*.log
+tunnel-config-*.json
+
+# IDE-specific workspace files
+*.code-workspace
+.history/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# ESLint cache
+.eslintcache
+
+# Prettier cache
+.prettiercache
