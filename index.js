@@ -11,6 +11,8 @@ import {
 import EnhancedHttpClient from "./http/EnhancedHttpClient.js";
 import ErrorHandler from "./http/ErrorHandler.js";
 import RetryStrategy from "./http/RetryStrategy.js";
+import SmartEndpointRouter from "./http/SmartEndpointRouter.js";
+import CNAMESubdomainHandler from "./http/CNAMESubdomainHandler.js";
 import { RateLimitError, CloudflareError } from "./http/errors/index.js";
 
 // Default retry configuration
@@ -28,6 +30,8 @@ const DEFAULT_RETRY_CONFIG = {
  * @param {string} options.clientId - Your Testluy application client ID.
  * @param {string} options.secretKey - Your Testluy application secret key.
  * @param {string} [options.baseUrl] - The base URL for the Testluy API (defaults to value in config or environment).
+ * @param {string} [options.bypassUrl] - Alternative bypass URL for deployment environments (auto-detected if not provided).
+ * @param {boolean} [options.enableSmartRouting=true] - Enable automatic endpoint selection based on environment.
  * @param {object} [options.retryConfig] - Configuration for request retries on rate limiting.
  * @param {number} [options.retryConfig.maxRetries=3] - Maximum number of retry attempts.
  * @param {number} [options.retryConfig.initialDelayMs=1000] - Initial delay in milliseconds before first retry.
@@ -43,26 +47,37 @@ class TestluyPaymentSDK {
         "TestluyPaymentSDK: Client ID and Secret Key are required."
       );
     }
-    // Ensure baseUrl doesn't end with a slash
-    this.baseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-    if (
-      !this.baseUrl.startsWith("http://") &&
-      !this.baseUrl.startsWith("https://")
-    ) {
-      logger.warn(
-        `TestluyPaymentSDK Warning: Base URL "${this.baseUrl}" might be invalid. Ensure it includes http:// or https://`
-      );
-    }
+    
     this.clientId = clientId;
     this.secretKey = secretKey;
     this.isValidated = false; // State to track if validateCredentials was successful
 
+    // Smart routing configuration
+    this.enableSmartRouting = options.enableSmartRouting !== false; // Default to true
+    this.primaryBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+    this.bypassUrl = options.bypassUrl; // Optional explicit bypass URL
+    this.currentBaseUrl = this.primaryBaseUrl; // Will be updated by smart routing
+
+    if (
+      !this.primaryBaseUrl.startsWith("http://") &&
+      !this.primaryBaseUrl.startsWith("https://")
+    ) {
+      logger.warn(
+        `TestluyPaymentSDK Warning: Base URL "${this.primaryBaseUrl}" might be invalid. Ensure it includes http:// or https://`
+      );
+    }
+
+    // Initialize smart routing components
+    if (this.enableSmartRouting) {
+      this._initializeSmartRouting();
+    }
+
     // Determine if we should use API prefix based on the base URL
     // For api-testluy.paragoniu.app, we don't need the /api prefix since it's already an API domain
-    this.useApiPrefix = !this.baseUrl.includes("api-testluy.paragoniu.app");
+    this.useApiPrefix = !this.currentBaseUrl.includes("api-testluy.paragoniu.app");
 
     logger.info(
-      `TestluyPaymentSDK initialized with baseUrl: ${this.baseUrl}, useApiPrefix: ${this.useApiPrefix}`
+      `TestluyPaymentSDK initialized with primaryBaseUrl: ${this.primaryBaseUrl}, smartRouting: ${this.enableSmartRouting}, useApiPrefix: ${this.useApiPrefix}`
     );
 
     // Set up retry configuration with defaults
@@ -84,6 +99,72 @@ class TestluyPaymentSDK {
   }
 
   /**
+   * Initialize smart routing components for automatic endpoint selection
+   * @private
+   */
+  _initializeSmartRouting() {
+    try {
+      // Initialize CNAME subdomain handler
+      this.cnameHandler = new CNAMESubdomainHandler({
+        mainDomain: this.primaryBaseUrl,
+        subdomainPrefix: 'sdk',
+        testTimeout: 5000
+      });
+
+      // Initialize smart endpoint router
+      this.endpointRouter = new SmartEndpointRouter({
+        primaryEndpoint: this.primaryBaseUrl,
+        bypassEndpoint: this.bypassUrl, // Will be auto-detected if not provided
+        testTimeout: 5000
+      });
+
+      logger.info('TestluyPaymentSDK: Smart routing initialized');
+    } catch (error) {
+      logger.warn(`TestluyPaymentSDK: Smart routing initialization failed: ${error.message}`);
+      // Continue without smart routing
+      this.enableSmartRouting = false;
+    }
+  }
+
+  /**
+   * Select the best endpoint for API requests
+   * @private
+   * @returns {Promise<string>} The selected endpoint URL
+   */
+  async _selectEndpoint() {
+    if (!this.enableSmartRouting) {
+      return this.primaryBaseUrl;
+    }
+
+    try {
+      // If no explicit bypass URL was provided, try to resolve one via CNAME
+      if (!this.bypassUrl && this.cnameHandler) {
+        const resolvedBypass = await this.cnameHandler.resolveBypassEndpoint();
+        if (resolvedBypass) {
+          this.bypassUrl = resolvedBypass;
+          // Update the router with the resolved bypass endpoint
+          this.endpointRouter.bypassEndpoint = resolvedBypass;
+          logger.info(`TestluyPaymentSDK: Auto-detected bypass endpoint: ${resolvedBypass}`);
+        }
+      }
+
+      // Use the smart router to select the best endpoint
+      const selectedEndpoint = await this.endpointRouter.selectEndpoint();
+      
+      // Update current base URL and API prefix logic
+      this.currentBaseUrl = selectedEndpoint;
+      this.useApiPrefix = !this.currentBaseUrl.includes("api-testluy.paragoniu.app");
+      
+      logger.debug(`TestluyPaymentSDK: Selected endpoint: ${selectedEndpoint}`);
+      return selectedEndpoint;
+
+    } catch (error) {
+      logger.warn(`TestluyPaymentSDK: Endpoint selection failed: ${error.message}, using primary`);
+      return this.primaryBaseUrl;
+    }
+  }
+
+  /**
    * Initializes the enhanced HTTP client and error handler for retry mechanism
    * @private
    */
@@ -98,7 +179,7 @@ class TestluyPaymentSDK {
 
     // Create enhanced HTTP client
     this.enhancedHttpClient = new EnhancedHttpClient({
-      baseUrl: this.baseUrl,
+      baseUrl: this.currentBaseUrl,
       timeout: 30000, // 30 seconds
       headers: {
         "Content-Type": "application/json",
@@ -258,6 +339,15 @@ class TestluyPaymentSDK {
         path = `/${path}`;
       }
 
+      // Select the best endpoint for this request
+      const selectedBaseUrl = await this._selectEndpoint();
+      
+      // Update HTTP client base URL if it changed
+      if (this.enhancedHttpClient.config.baseUrl !== selectedBaseUrl) {
+        this.enhancedHttpClient.config.baseUrl = selectedBaseUrl;
+        logger.debug(`TestluyPaymentSDK: Updated HTTP client base URL to: ${selectedBaseUrl}`);
+      }
+
       // Ensure the path includes the /api/ prefix if useApiPrefix is true
       if (this.useApiPrefix && !path.includes("/api/")) {
         logger.warn(
@@ -267,40 +357,43 @@ class TestluyPaymentSDK {
 
       // Create retry context for URL validation
       const retryContext = {
-        originalUrl: `${this.baseUrl}${path}`,
-        baseUrl: this.baseUrl,
+        originalUrl: `${selectedBaseUrl}${path}`,
+        baseUrl: selectedBaseUrl,
+        primaryBaseUrl: this.primaryBaseUrl,
+        bypassUrl: this.bypassUrl,
         endpoint: path,
         method: method,
         timestamp: new Date().toISOString(),
         useApiPrefix: this.useApiPrefix,
+        smartRoutingEnabled: this.enableSmartRouting,
       };
 
       // Validate that the combination of baseUrl and path will create a valid URL
       try {
-        const testUrl = new URL(path, this.baseUrl);
+        const testUrl = new URL(path, selectedBaseUrl);
         logger.debug(
           `TestluyPaymentSDK: URL validation passed for: ${testUrl.toString()}`
         );
         retryContext.validatedUrl = testUrl.toString();
         retryContext.urlValidationSteps = [
-          `Base URL: "${this.baseUrl}"`,
+          `Selected Base URL: "${selectedBaseUrl}"`,
           `Path: "${path}"`,
           `Combined URL: "${testUrl.toString()}"`,
           "URL validation: SUCCESS"
         ];
       } catch (urlValidationError) {
         logger.error(
-          `TestluyPaymentSDK: URL validation failed for baseUrl="${this.baseUrl}" and path="${path}": ${urlValidationError.message}`
+          `TestluyPaymentSDK: URL validation failed for baseUrl="${selectedBaseUrl}" and path="${path}": ${urlValidationError.message}`
         );
         
         retryContext.urlValidationSteps = [
-          `Base URL: "${this.baseUrl}"`,
+          `Selected Base URL: "${selectedBaseUrl}"`,
           `Path: "${path}"`,
           `URL validation: FAILED - ${urlValidationError.message}`
         ];
         
         const enhancedError = new Error(
-          `Invalid URL combination: baseUrl="${this.baseUrl}" and path="${path}". ${urlValidationError.message}`
+          `Invalid URL combination: baseUrl="${selectedBaseUrl}" and path="${path}". ${urlValidationError.message}`
         );
         enhancedError.retryContext = retryContext;
         enhancedError.urlConstructionSteps = retryContext.urlValidationSteps;
@@ -359,9 +452,12 @@ class TestluyPaymentSDK {
         // Add enhanced error context
         error.errorContext = {
           path,
-          baseUrl: this.baseUrl,
+          baseUrl: selectedBaseUrl || this.currentBaseUrl,
+          primaryBaseUrl: this.primaryBaseUrl,
+          bypassUrl: this.bypassUrl,
           method,
           useApiPrefix: this.useApiPrefix,
+          smartRoutingEnabled: this.enableSmartRouting,
           retryContext: error.retryContext,
           urlConstructionSteps: error.urlConstructionSteps || [],
         };
@@ -411,7 +507,10 @@ class TestluyPaymentSDK {
       error.errorContext = {
         path,
         method,
-        baseUrl: this.baseUrl,
+        baseUrl: this.currentBaseUrl,
+        primaryBaseUrl: this.primaryBaseUrl,
+        bypassUrl: this.bypassUrl,
+        smartRoutingEnabled: this.enableSmartRouting,
         retryContext: error.retryContext,
         urlConstructionSteps: error.urlConstructionSteps || [],
       };
@@ -541,6 +640,38 @@ class TestluyPaymentSDK {
       });
       throw new Error(`API request failed: ${errorMessage}`);
     }
+  }
+
+  /**
+   * Get current routing information for debugging
+   * @returns {object} Routing information
+   */
+  getRoutingInfo() {
+    return {
+      smartRoutingEnabled: this.enableSmartRouting,
+      primaryBaseUrl: this.primaryBaseUrl,
+      currentBaseUrl: this.currentBaseUrl,
+      bypassUrl: this.bypassUrl,
+      useApiPrefix: this.useApiPrefix,
+      selectedEndpoint: this.endpointRouter?.getCurrentEndpoint(),
+      environmentInfo: this.endpointRouter?.environmentDetector?.getEnvironmentInfo(),
+      cnameStats: this.cnameHandler?.getCacheStats()
+    };
+  }
+
+  /**
+   * Force refresh of endpoint selection
+   * @returns {Promise<string>} The newly selected endpoint
+   */
+  async refreshEndpoint() {
+    if (this.enableSmartRouting && this.endpointRouter) {
+      this.endpointRouter.invalidateCache();
+      if (this.cnameHandler) {
+        this.cnameHandler.clearCache();
+      }
+      return await this._selectEndpoint();
+    }
+    return this.primaryBaseUrl;
   }
 
   /**

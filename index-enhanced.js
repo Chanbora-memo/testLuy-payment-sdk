@@ -27,6 +27,10 @@ import {
 import CryptoPolyfill from "./http/utils/CryptoPolyfill.js";
 import EnvironmentDetector from "./http/utils/EnvironmentDetector.js";
 
+// Import smart routing components
+import SmartEndpointRouter from "./http/SmartEndpointRouter.js";
+import CNAMESubdomainHandler from "./http/CNAMESubdomainHandler.js";
+
 // Default retry configuration
 const DEFAULT_RETRY_CONFIG = {
   maxRetries: 3,
@@ -45,6 +49,8 @@ const DEFAULT_RETRY_CONFIG = {
  * @param {string} options.clientId - Your Testluy application client ID.
  * @param {string} options.secretKey - Your Testluy application secret key.
  * @param {string} [options.baseUrl] - The base URL for the Testluy API (defaults to value in config or environment).
+ * @param {string} [options.bypassUrl] - Alternative bypass URL for deployment environments (auto-detected if not provided).
+ * @param {boolean} [options.enableSmartRouting=true] - Enable automatic endpoint selection based on environment.
  * @param {object} [options.retryConfig] - Configuration for request retries on rate limiting.
  * @param {number} [options.retryConfig.maxRetries=3] - Maximum number of retry attempts.
  * @param {number} [options.retryConfig.baseDelay=1000] - Initial delay in milliseconds before first retry.
@@ -71,26 +77,39 @@ class TestluyPaymentSDK {
       );
     }
 
-    // Ensure baseUrl doesn't end with a slash
-    this.baseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-    if (
-      !this.baseUrl.startsWith("http://") &&
-      !this.baseUrl.startsWith("https://")
-    ) {
-      logger.warn(
-        `TestluyPaymentSDK Warning: Base URL "${this.baseUrl}" might be invalid. Ensure it includes http:// or https://`
-      );
-    }
-
     this.clientId = clientId;
     this.secretKey = secretKey;
     this.isValidated = false; // State to track if validateCredentials was successful
 
-    // Always use the /api prefix for all API endpoints
-    this.useApiPrefix = true;
+    // Smart routing configuration
+    this.enableSmartRouting = options.enableSmartRouting !== false; // Default to true
+    this.primaryBaseUrl = baseUrl.endsWith("/")
+      ? baseUrl.slice(0, -1)
+      : baseUrl;
+    this.bypassUrl = options.bypassUrl; // Optional explicit bypass URL
+    this.currentBaseUrl = this.primaryBaseUrl; // Will be updated by smart routing
+
+    if (
+      !this.primaryBaseUrl.startsWith("http://") &&
+      !this.primaryBaseUrl.startsWith("https://")
+    ) {
+      logger.warn(
+        `TestluyPaymentSDK Warning: Base URL "${this.primaryBaseUrl}" might be invalid. Ensure it includes http:// or https://`
+      );
+    }
+
+    // Initialize smart routing components
+    if (this.enableSmartRouting) {
+      this._initializeSmartRouting();
+    }
+
+    // Determine if we should use API prefix based on the base URL
+    // For api-testluy.paragoniu.app, we don't need the /api prefix since it's already an API domain
+    // BUT for testing Cloudflare Tunnel Zero Trust, let's try with the prefix
+    this.useApiPrefix = true; // Force true for testing
 
     logger.info(
-      `TestluyPaymentSDK initialized with baseUrl: ${this.baseUrl}, useApiPrefix: ${this.useApiPrefix}`
+      `TestluyPaymentSDK initialized with primaryBaseUrl: ${this.primaryBaseUrl}, smartRouting: ${this.enableSmartRouting}, useApiPrefix: ${this.useApiPrefix}`
     );
 
     // Set up retry configuration with defaults
@@ -127,16 +146,11 @@ class TestluyPaymentSDK {
       currentPlan: null,
     };
 
-    // Initialize enhanced HTTP components
-    this._initializeHttpClient();
-  }
+    // Initialize smart routing if enabled
+    if (this.enableSmartRouting) {
+      this._initializeSmartRouting();
+    }
 
-  /**
-   * Initializes the enhanced HTTP client with interceptors for Cloudflare resilience
-   *
-   * @private
-   */
-  _initializeHttpClient() {
     // Initialize environment detection
     this.environmentInfo = EnvironmentDetector.getEnvironmentInfo();
     logger.info(
@@ -144,11 +158,20 @@ class TestluyPaymentSDK {
       this.environmentInfo
     );
 
+    // Initialize bypass mode
+    this.bypassMode = "none"; // Will be set by _selectEndpoint
+
+    // Set current base URL to primary for now - will be updated during first request
+    this.currentBaseUrl = this.primaryBaseUrl;
+
     // Initialize crypto polyfill
     this.cryptoPolyfill = CryptoPolyfill;
 
     // Initialize Cloudflare bypass module
     this.cloudflareBypass = new CloudflareBypass(this.cloudflareConfig);
+
+    // Create request fingerprinter for browser-like headers
+    this.requestFingerprinter = new RequestFingerprinter();
 
     // Configure logger based on options
     if (this.loggingConfig) {
@@ -169,18 +192,127 @@ class TestluyPaymentSDK {
       jitterFactor: this.retryConfig.jitterFactor,
     });
 
-    // Create request fingerprinter for browser-like headers
-    this.requestFingerprinter = new RequestFingerprinter();
+    // HTTP client will be created lazily on first request
+    this.httpClient = null;
+  }
 
-    // Create enhanced HTTP client first
+  /**
+   * Initialize smart routing components for automatic endpoint selection
+   * @private
+   */
+  _initializeSmartRouting() {
+    try {
+      // Initialize CNAME subdomain handler
+      this.cnameHandler = new CNAMESubdomainHandler({
+        mainDomain: this.primaryBaseUrl,
+        subdomainPrefix: "sdk",
+        testTimeout: 5000,
+      });
+
+      // Initialize smart endpoint router
+      this.endpointRouter = new SmartEndpointRouter({
+        primaryEndpoint: this.primaryBaseUrl,
+        bypassEndpoint: this.bypassUrl, // Will be auto-detected if not provided
+        testTimeout: 5000,
+      });
+
+      logger.info("TestluyPaymentSDK: Smart routing initialized");
+    } catch (error) {
+      logger.warn(
+        `TestluyPaymentSDK: Smart routing initialization failed: ${error.message}`
+      );
+      // Continue without smart routing
+      this.enableSmartRouting = false;
+    }
+  }
+
+  /**
+   * Select the best endpoint for API requests
+   * @private
+   * @returns {Promise<string>} The selected endpoint URL
+   */
+  async _selectEndpoint() {
+    if (!this.enableSmartRouting) {
+      return this.primaryBaseUrl;
+    }
+
+    try {
+      // For Cloudflare Tunnel Zero Trust environments, use header-based bypass instead of subdomain routing
+      // since tunnel configuration may not support multiple subdomains
+      const envInfo =
+        this.environmentInfo || EnvironmentDetector.getEnvironmentInfo();
+
+      if (envInfo.isDeployment) {
+        logger.info(
+          `TestluyPaymentSDK: Deployment environment detected (${envInfo.platform}), using header-based Cloudflare bypass`
+        );
+
+        // Set bypass mode to use headers instead of subdomain
+        this.bypassMode = "headers";
+        this.currentBaseUrl = this.primaryBaseUrl; // Keep using main endpoint
+        // Always use API prefix for api-testluy.paragoniu.app domain (requires /api/ prefix)
+        this.useApiPrefix = true;
+
+        logger.info(
+          `TestluyPaymentSDK: Using header-based bypass with endpoint: ${this.currentBaseUrl}`
+        );
+        return this.currentBaseUrl;
+      }
+
+      // For local development, use primary endpoint normally
+      logger.info(
+        "TestluyPaymentSDK: Local development detected, using primary endpoint"
+      );
+      this.bypassMode = "none";
+      this.currentBaseUrl = this.primaryBaseUrl;
+      // Always use API prefix for api-testluy.paragoniu.app domain (requires /api/ prefix)
+      this.useApiPrefix = true;
+
+      logger.debug(
+        `TestluyPaymentSDK: Selected endpoint: ${this.currentBaseUrl}`
+      );
+      return this.currentBaseUrl;
+    } catch (error) {
+      logger.warn(
+        `TestluyPaymentSDK: Endpoint selection failed: ${error.message}, using primary with header bypass`
+      );
+      this.bypassMode = "headers";
+      return this.primaryBaseUrl;
+    }
+  }
+
+  /**
+   * Ensures the HTTP client is initialized (called lazily on first request)
+   * @private
+   */
+  async _ensureHttpClientInitialized() {
+    if (this.httpClient) {
+      return; // Already initialized
+    }
+
+    // Select the best endpoint if smart routing is enabled
+    if (this.enableSmartRouting) {
+      await this._selectEndpoint();
+    }
+
+    // Use the current base URL (which may have been updated by smart routing)
+    const effectiveBaseUrl = this.currentBaseUrl;
+
+    // Create enhanced HTTP client
+    logger.debug(
+      `TestluyPaymentSDK: Creating HTTP client with effectiveBaseUrl: ${effectiveBaseUrl}`
+    );
     this.httpClient = new EnhancedHttpClient({
-      baseUrl: this.baseUrl,
+      baseUrl: effectiveBaseUrl,
       timeout: 30000, // 30 seconds
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
     });
+    logger.debug(
+      `TestluyPaymentSDK: HTTP client created, config.baseUrl: ${this.httpClient.config?.baseUrl}, httpClient.baseUrl: ${this.httpClient.httpClient?.baseUrl}`
+    );
 
     // Create error handler and pass HTTP adapter reference for retry operations
     this.errorHandler = new ErrorHandler({
@@ -199,7 +331,7 @@ class TestluyPaymentSDK {
       },
     });
 
-    // Add request interceptor for authentication
+    // Add request interceptor for authentication and Cloudflare bypass
     this.httpClient.addRequestInterceptor({
       onRequest: async (config) => {
         // Add authentication headers
@@ -209,23 +341,23 @@ class TestluyPaymentSDK {
           config.data
         );
 
+        // Add Cloudflare bypass headers if in bypass mode
+        let bypassHeaders = {};
+        if (this.bypassMode === "headers" && this.cloudflareConfig.enabled) {
+          bypassHeaders = await this._getCloudflareBypassHeaders();
+        }
+
         // Merge headers
         return {
           ...config,
           headers: {
             ...config.headers,
             ...authHeaders,
+            ...bypassHeaders,
           },
         };
       },
     });
-
-    // Add Cloudflare bypass interceptor
-    if (this.cloudflareConfig.enabled) {
-      this.httpClient.addRequestInterceptor(
-        this.cloudflareBypass.createRequestInterceptor()
-      );
-    }
 
     // Add response interceptor for rate limit tracking
     this.httpClient.addResponseInterceptor({
@@ -306,6 +438,39 @@ class TestluyPaymentSDK {
 
       logger.info("TestluyPaymentSDK: Debug interceptor configured");
     }
+  }
+
+  /**
+   * Get current routing information for debugging
+   * @returns {object} Routing information
+   */
+  getRoutingInfo() {
+    return {
+      smartRoutingEnabled: this.enableSmartRouting,
+      primaryBaseUrl: this.primaryBaseUrl,
+      currentBaseUrl: this.currentBaseUrl,
+      bypassUrl: this.bypassUrl,
+      useApiPrefix: this.useApiPrefix,
+      selectedEndpoint: this.endpointRouter?.getCurrentEndpoint(),
+      environmentInfo:
+        this.endpointRouter?.environmentDetector?.getEnvironmentInfo(),
+      cnameStats: this.cnameHandler?.getCacheStats(),
+    };
+  }
+
+  /**
+   * Force refresh of endpoint selection
+   * @returns {Promise<string>} The newly selected endpoint
+   */
+  async refreshEndpoint() {
+    if (this.enableSmartRouting && this.endpointRouter) {
+      this.endpointRouter.invalidateCache();
+      if (this.cnameHandler) {
+        this.cnameHandler.clearCache();
+      }
+      return await this._selectEndpoint();
+    }
+    return this.primaryBaseUrl;
   }
 
   /**
@@ -421,6 +586,99 @@ class TestluyPaymentSDK {
   }
 
   /**
+   * Generates Cloudflare bypass headers for deployment environments
+   * @private
+   * @returns {Promise<object>} Headers to help bypass Cloudflare protection
+   */
+  async _getCloudflareBypassHeaders() {
+    const headers = {};
+
+    try {
+      // Add browser-like headers to mimic legitimate traffic
+      const browserHeaders = this.requestFingerprinter.generateHeaders({
+        url: this.currentBaseUrl,
+        method: "POST",
+      });
+
+      // Enhanced User-Agent for deployment environments
+      if (this.environmentInfo && this.environmentInfo.isDeployment) {
+        headers["User-Agent"] = this._generateDeploymentUserAgent();
+      } else if (browserHeaders["User-Agent"]) {
+        headers["User-Agent"] = browserHeaders["User-Agent"];
+      }
+
+      // Add browser-like headers
+      if (this.cloudflareConfig.addBrowserHeaders) {
+        Object.assign(headers, {
+          Accept:
+            browserHeaders["Accept"] || "application/json, text/plain, */*",
+          "Accept-Language":
+            browserHeaders["Accept-Language"] || "en-US,en;q=0.9",
+          "Accept-Encoding":
+            browserHeaders["Accept-Encoding"] || "gzip, deflate, br",
+          "Cache-Control": browserHeaders["Cache-Control"] || "no-cache",
+          Connection: browserHeaders["Connection"] || "keep-alive",
+          DNT: browserHeaders["DNT"] || "1",
+        });
+
+        // Add Sec-Fetch headers for modern browser simulation
+        const secHeaders = this.requestFingerprinter.generateSecFetchHeaders(
+          "POST",
+          this.currentBaseUrl
+        );
+        Object.assign(headers, secHeaders);
+      }
+
+      // Add deployment environment indicator
+      if (this.environmentInfo) {
+        headers["X-Deployment-Platform"] =
+          this.environmentInfo.platform || "unknown";
+        headers["X-SDK-Environment"] = "deployment";
+      }
+
+      // Add timing variation to avoid pattern detection
+      if (this.cloudflareConfig.addTimingVariation) {
+        const jitter = Math.floor(Math.random() * 100);
+        headers["X-Request-ID"] = `sdk-${Date.now()}-${jitter}`;
+      }
+
+      logger.debug(
+        "TestluyPaymentSDK: Generated Cloudflare bypass headers",
+        headers
+      );
+      return headers;
+    } catch (error) {
+      logger.warn(
+        `TestluyPaymentSDK: Error generating bypass headers: ${error.message}`
+      );
+      return {};
+    }
+  }
+
+  /**
+   * Generate a deployment-specific User-Agent string
+   * @private
+   * @returns {string} User-Agent string for deployment environments
+   */
+  _generateDeploymentUserAgent() {
+    const platform = this.environmentInfo?.platform || "unknown";
+    const nodeVersion = process.version || "unknown";
+
+    // Use different patterns for different deployment platforms
+    const userAgents = {
+      vercel: `Mozilla/5.0 (compatible; TestluySDK/3.7.2; Vercel; Node.js ${nodeVersion})`,
+      netlify: `Mozilla/5.0 (compatible; TestluySDK/3.7.2; Netlify; Node.js ${nodeVersion})`,
+      render: `Mozilla/5.0 (compatible; TestluySDK/3.7.2; Render; Node.js ${nodeVersion})`,
+      heroku: `Mozilla/5.0 (compatible; TestluySDK/3.7.2; Heroku; Node.js ${nodeVersion})`,
+      railway: `Mozilla/5.0 (compatible; TestluySDK/3.7.2; Railway; Node.js ${nodeVersion})`,
+      fly: `Mozilla/5.0 (compatible; TestluySDK/3.7.2; Fly.io; Node.js ${nodeVersion})`,
+      default: `Mozilla/5.0 (compatible; TestluySDK/3.7.2; ${platform}; Node.js ${nodeVersion})`,
+    };
+
+    return userAgents[platform] || userAgents.default;
+  }
+
+  /**
    * Makes an API request using the enhanced HTTP client
    * @private
    * @param {string} method - HTTP method (GET, POST, etc.).
@@ -451,18 +709,23 @@ class TestluyPaymentSDK {
         );
       }
 
-      // Validate that the combination of baseUrl and path will create a valid URL
+      // Initialize HTTP client if not already done
+      if (!this.httpClient) {
+        await this._ensureHttpClientInitialized();
+      }
+
+      // Validate that the combination of currentBaseUrl and path will create a valid URL
       try {
-        const testUrl = new URL(path, this.baseUrl);
+        const testUrl = new URL(path, this.currentBaseUrl);
         logger.debug(
           `TestluyPaymentSDK: URL validation passed for: ${testUrl.toString()}`
         );
       } catch (urlValidationError) {
         logger.error(
-          `TestluyPaymentSDK: URL validation failed for baseUrl="${this.baseUrl}" and path="${path}": ${urlValidationError.message}`
+          `TestluyPaymentSDK: URL validation failed for baseUrl="${this.currentBaseUrl}" and path="${path}": ${urlValidationError.message}`
         );
         throw new Error(
-          `Invalid URL combination: baseUrl="${this.baseUrl}" and path="${path}". ${urlValidationError.message}`
+          `Invalid URL combination: baseUrl="${this.currentBaseUrl}" and path="${path}". ${urlValidationError.message}`
         );
       }
 
@@ -486,7 +749,7 @@ class TestluyPaymentSDK {
           `TestluyPaymentSDK: URL construction error: ${error.message}`
         );
         logger.error(
-          `TestluyPaymentSDK: Attempted path: "${path}", baseUrl: "${this.baseUrl}"`
+          `TestluyPaymentSDK: Attempted path: "${path}", baseUrl: "${this.currentBaseUrl}"`
         );
         throw new Error(
           `URL construction error: ${error.message}. Please check your baseUrl and endpoint path.`

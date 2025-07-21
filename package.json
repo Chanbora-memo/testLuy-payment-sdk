@@ -1,7 +1,7 @@
 {
   "name": "testluy-payment-sdk",
-  "version": "3.6.7",
-  "description": "SDK for TestLuy Payment Simulator with Cloudflare resilience",
+  "version": "3.8.1",
+  "description": "SDK for TestLuy Payment Simulator with enhanced Cloudflare resilience and Tunnel Zero Trust support",
   "main": "index-enhanced.js",
   "type": "module",
   "exports": {
@@ -21,12 +21,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node test-enhanced.js",
-    "test:debug": "node test-debugging-monitoring.js",
-    "test:browser": "node test-browser-compatibility.js",
-    "test:logger": "node test-logger.js",
+    "test": "npm run test:all",
     "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.js --testPathPattern=tests/unit",
-    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.js --testPathPattern=tests/integration",
+    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.js --testPathPattern=tests/integration", 
     "test:all": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config=jest.config.js"
   },
   "keywords": [

@@ -5,12 +5,12 @@
  * environments using either axios or node-fetch.
  */
 
-import { 
-  detectDeploymentPlatform, 
-  getPlatformUrlConfig, 
+import {
+  detectDeploymentPlatform,
+  getPlatformUrlConfig,
   getDeploymentErrorContext,
-  isDeploymentEnvironment 
-} from '../utils/DeploymentEnvironmentDetector.js';
+  isDeploymentEnvironment,
+} from "../utils/DeploymentEnvironmentDetector.js";
 
 /**
  * NodeAdapter class for making HTTP requests in Node.js
@@ -57,7 +57,10 @@ class NodeAdapter {
     // Apply timeout adjustments based on platform
     if (this.platformConfig.timeoutAdjustments) {
       if (this.platformConfig.timeoutAdjustments.default) {
-        this.timeout = Math.min(this.timeout, this.platformConfig.timeoutAdjustments.default);
+        this.timeout = Math.min(
+          this.timeout,
+          this.platformConfig.timeoutAdjustments.default
+        );
       }
     }
 
@@ -65,7 +68,7 @@ class NodeAdapter {
     if (this.platformConfig.headerAdjustments) {
       this.headers = {
         ...this.headers,
-        ...this.platformConfig.headerAdjustments
+        ...this.platformConfig.headerAdjustments,
       };
     }
   }
@@ -306,7 +309,8 @@ class NodeAdapter {
           responseData = { isValid: true };
         } else if (url.includes("/payment-simulator/generate-url")) {
           responseData = {
-            payment_url: "http://api-testluy.paragoniu.app/api/sandbox/payment?transaction_id=test-transaction-123&amount=100.5&application_id=1&callback_url=https%3A%2F%2Fexample.com%2Fcallback",
+            payment_url:
+              "http://api-testluy.paragoniu.app/api/sandbox/payment?transaction_id=test-transaction-123&amount=100.5&application_id=1&callback_url=https%3A%2F%2Fexample.com%2Fcallback",
             transaction_id: "test-transaction-123",
           };
         } else if (url.includes("/payment-simulator/status/")) {
@@ -592,7 +596,8 @@ class NodeAdapter {
           responseData = { isValid: true };
         } else if (url.includes("/payment-simulator/generate-url")) {
           responseData = {
-            payment_url: "http://api-testluy.paragoniu.app/api/sandbox/payment?transaction_id=test-transaction-123&amount=100.5&application_id=1&callback_url=https%3A%2F%2Fexample.com%2Fcallback",
+            payment_url:
+              "http://api-testluy.paragoniu.app/api/sandbox/payment?transaction_id=test-transaction-123&amount=100.5&application_id=1&callback_url=https%3A%2F%2Fexample.com%2Fcallback",
             transaction_id: "test-transaction-123",
           };
         } else if (url.includes("/payment-simulator/status/")) {
@@ -801,61 +806,95 @@ class NodeAdapter {
     const context = {
       originalUrl: url,
       baseUrl: this.baseUrl,
-      adapterType: 'NodeAdapter',
+      adapterType: "NodeAdapter",
       retryAttempt: retryContext.attempt || 0,
       deploymentPlatform: this.deploymentPlatform,
       isDeployment: this.isDeployment,
       platformConfig: this.platformConfig,
-      ...retryContext
+      ...retryContext,
     };
 
     try {
       // Primary URL construction method with deployment awareness
-      validationSteps.push(`Starting primary URL construction (Platform: ${this.deploymentPlatform})`);
-      
+      validationSteps.push(
+        `Starting primary URL construction (Platform: ${this.deploymentPlatform})`
+      );
+
       // If URL is already absolute, validate it based on platform requirements
       if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
-        validationSteps.push('URL is absolute, applying platform validation');
-        
+        validationSteps.push("URL is absolute, applying platform validation");
+
         // Apply platform-specific URL validation
         if (this._validateUrlForPlatform(url, validationSteps, context)) {
-          this._logUrlConstruction('success', validationSteps, context, url);
+          this._logUrlConstruction("success", validationSteps, context, url);
           return url;
         }
       }
 
       // Handle null or undefined URL
       if (!url) {
-        validationSteps.push('URL validation failed: null or undefined');
+        validationSteps.push("URL validation failed: null or undefined");
         throw new Error("URL cannot be null or undefined");
       }
 
       // Apply deployment-specific URL construction
-      const constructedUrl = this._constructUrlForPlatform(url, validationSteps, context);
-      
+      const constructedUrl = this._constructUrlForPlatform(
+        url,
+        validationSteps,
+        context
+      );
+
       // Validate the constructed URL
-      if (this._validateUrlForPlatform(constructedUrl, validationSteps, context)) {
-        validationSteps.push('URL construction and validation: SUCCESS');
-        this._logUrlConstruction('success', validationSteps, context, constructedUrl);
+      if (
+        this._validateUrlForPlatform(constructedUrl, validationSteps, context)
+      ) {
+        validationSteps.push("URL construction and validation: SUCCESS");
+        this._logUrlConstruction(
+          "success",
+          validationSteps,
+          context,
+          constructedUrl
+        );
         return constructedUrl;
       } else {
-        validationSteps.push('Platform validation failed, trying fallback');
-        throw new Error('Platform-specific URL validation failed');
+        validationSteps.push("Platform validation failed, trying fallback");
+        throw new Error("Platform-specific URL validation failed");
       }
     } catch (error) {
       validationSteps.push(`Primary construction failed: ${error.message}`);
-      
+
       try {
         // Attempt fallback construction with deployment context
-        const fallbackUrl = this._buildUrlFallback(url, validationSteps, context);
-        this._logUrlConstruction('fallback_success', validationSteps, context, fallbackUrl);
+        const fallbackUrl = this._buildUrlFallback(
+          url,
+          validationSteps,
+          context
+        );
+        this._logUrlConstruction(
+          "fallback_success",
+          validationSteps,
+          context,
+          fallbackUrl
+        );
         return fallbackUrl;
       } catch (fallbackError) {
-        validationSteps.push(`Fallback construction failed: ${fallbackError.message}`);
-        
+        validationSteps.push(
+          `Fallback construction failed: ${fallbackError.message}`
+        );
+
         // Enhanced error with deployment-specific debugging information
-        const enhancedError = this._createEnhancedUrlError(error, validationSteps, context);
-        this._logUrlConstruction('failure', validationSteps, context, null, enhancedError);
+        const enhancedError = this._createEnhancedUrlError(
+          error,
+          validationSteps,
+          context
+        );
+        this._logUrlConstruction(
+          "failure",
+          validationSteps,
+          context,
+          null,
+          enhancedError
+        );
         throw enhancedError;
       }
     }
@@ -877,13 +916,18 @@ class NodeAdapter {
 
     // Ensure baseUrl is valid
     if (!this.baseUrl) {
-      validationSteps.push('Base URL validation failed: not configured');
+      validationSteps.push("Base URL validation failed: not configured");
       throw new Error("Base URL is not configured");
     }
 
     // Validate baseUrl format with platform-specific requirements
-    if (!this.baseUrl.startsWith("http://") && !this.baseUrl.startsWith("https://")) {
-      validationSteps.push(`Base URL validation failed: invalid format "${this.baseUrl}"`);
+    if (
+      !this.baseUrl.startsWith("http://") &&
+      !this.baseUrl.startsWith("https://")
+    ) {
+      validationSteps.push(
+        `Base URL validation failed: invalid format "${this.baseUrl}"`
+      );
       throw new Error(`Invalid base URL format: ${this.baseUrl}`);
     }
 
@@ -893,19 +937,33 @@ class NodeAdapter {
       : this.baseUrl;
 
     // Platform-specific adjustments
-    if (this.platformConfig.requiresAbsoluteUrls && !this.baseUrl.startsWith("http")) {
-      validationSteps.push('Platform requires absolute URLs, ensuring proper protocol');
-      if (!baseUrlWithoutTrailingSlash.startsWith("http://") && !baseUrlWithoutTrailingSlash.startsWith("https://")) {
+    if (
+      this.platformConfig.requiresAbsoluteUrls &&
+      !this.baseUrl.startsWith("http")
+    ) {
+      validationSteps.push(
+        "Platform requires absolute URLs, ensuring proper protocol"
+      );
+      if (
+        !baseUrlWithoutTrailingSlash.startsWith("http://") &&
+        !baseUrlWithoutTrailingSlash.startsWith("https://")
+      ) {
         baseUrlWithoutTrailingSlash = `https://${baseUrlWithoutTrailingSlash}`;
-        validationSteps.push(`Added HTTPS protocol: "${baseUrlWithoutTrailingSlash}"`);
+        validationSteps.push(
+          `Added HTTPS protocol: "${baseUrlWithoutTrailingSlash}"`
+        );
       }
     }
 
-    validationSteps.push(`Base URL normalized for ${context.deploymentPlatform}: "${this.baseUrl}" -> "${baseUrlWithoutTrailingSlash}"`);
+    validationSteps.push(
+      `Base URL normalized for ${context.deploymentPlatform}: "${this.baseUrl}" -> "${baseUrlWithoutTrailingSlash}"`
+    );
 
     // Construct the full URL
     const fullUrl = `${baseUrlWithoutTrailingSlash}${cleanUrl}`;
-    validationSteps.push(`Full URL constructed for ${context.deploymentPlatform}: "${fullUrl}"`);
+    validationSteps.push(
+      `Full URL constructed for ${context.deploymentPlatform}: "${fullUrl}"`
+    );
 
     return fullUrl;
   }
@@ -923,18 +981,18 @@ class NodeAdapter {
     try {
       // Basic URL validation
       const urlObj = new URL(url);
-      validationSteps.push('Basic URL validation: SUCCESS');
+      validationSteps.push("Basic URL validation: SUCCESS");
 
       // Platform-specific validation
       if (this.platformConfig.urlValidationStrict) {
         // Strict validation for production environments
-        if (!urlObj.protocol || (!urlObj.protocol.startsWith('http'))) {
-          validationSteps.push('Strict validation failed: invalid protocol');
+        if (!urlObj.protocol || !urlObj.protocol.startsWith("http")) {
+          validationSteps.push("Strict validation failed: invalid protocol");
           return false;
         }
-        
+
         if (!urlObj.hostname) {
-          validationSteps.push('Strict validation failed: missing hostname');
+          validationSteps.push("Strict validation failed: missing hostname");
           return false;
         }
       }
@@ -942,25 +1000,43 @@ class NodeAdapter {
       // Check platform-specific URL patterns if defined
       if (this.platformConfig.urlPatterns) {
         const { functionUrls, previewUrls } = this.platformConfig.urlPatterns;
-        
-        if (functionUrls && functionUrls.test && functionUrls.test(urlObj.hostname)) {
-          validationSteps.push(`Platform URL pattern matched: function URL for ${context.deploymentPlatform}`);
-        } else if (previewUrls && previewUrls.test && previewUrls.test(urlObj.hostname)) {
-          validationSteps.push(`Platform URL pattern matched: preview URL for ${context.deploymentPlatform}`);
+
+        if (
+          functionUrls &&
+          functionUrls.test &&
+          functionUrls.test(urlObj.hostname)
+        ) {
+          validationSteps.push(
+            `Platform URL pattern matched: function URL for ${context.deploymentPlatform}`
+          );
+        } else if (
+          previewUrls &&
+          previewUrls.test &&
+          previewUrls.test(urlObj.hostname)
+        ) {
+          validationSteps.push(
+            `Platform URL pattern matched: preview URL for ${context.deploymentPlatform}`
+          );
         }
       }
 
-      validationSteps.push(`Platform validation SUCCESS for ${context.deploymentPlatform}`);
+      validationSteps.push(
+        `Platform validation SUCCESS for ${context.deploymentPlatform}`
+      );
       return true;
     } catch (urlError) {
-      validationSteps.push(`Platform URL validation failed: ${urlError.message}`);
-      
+      validationSteps.push(
+        `Platform URL validation failed: ${urlError.message}`
+      );
+
       // For non-strict platforms, try to be more lenient
       if (!this.platformConfig.urlValidationStrict) {
-        validationSteps.push('Non-strict platform, allowing URL despite validation error');
+        validationSteps.push(
+          "Non-strict platform, allowing URL despite validation error"
+        );
         return true;
       }
-      
+
       return false;
     }
   }
@@ -975,23 +1051,25 @@ class NodeAdapter {
    * @returns {string} - Full URL
    */
   _buildUrlFallback(url, validationSteps, context) {
-    validationSteps.push('Starting fallback URL construction');
-    
+    validationSteps.push("Starting fallback URL construction");
+
     // If URL is already absolute, return it as is
     if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
-      validationSteps.push('Fallback: URL is absolute');
+      validationSteps.push("Fallback: URL is absolute");
       return url;
     }
 
     // Handle null or undefined URL
     if (!url) {
-      validationSteps.push('Fallback: URL is null/undefined');
-      throw new Error("URL cannot be null or undefined in fallback construction");
+      validationSteps.push("Fallback: URL is null/undefined");
+      throw new Error(
+        "URL cannot be null or undefined in fallback construction"
+      );
     }
 
     // Ensure baseUrl is valid
     if (!this.baseUrl) {
-      validationSteps.push('Fallback: Base URL not configured');
+      validationSteps.push("Fallback: Base URL not configured");
       throw new Error("Base URL is not configured for fallback construction");
     }
 
@@ -1005,7 +1083,9 @@ class NodeAdapter {
 
     // Remove any double slashes in the path
     fixedPath = fixedPath.replace(/\/+/g, "/");
-    validationSteps.push(`Fallback: Path normalized "${url}" -> "${fixedPath}"`);
+    validationSteps.push(
+      `Fallback: Path normalized "${url}" -> "${fixedPath}"`
+    );
 
     // Remove trailing slash from baseUrl if present
     const baseUrlWithoutTrailingSlash = this.baseUrl.endsWith("/")
@@ -1019,11 +1099,15 @@ class NodeAdapter {
     try {
       // Validate the fallback URL
       new URL(fallbackUrl);
-      validationSteps.push('Fallback: URL validation SUCCESS');
+      validationSteps.push("Fallback: URL validation SUCCESS");
       return fallbackUrl;
     } catch (fallbackError) {
-      validationSteps.push(`Fallback: URL validation failed - ${fallbackError.message}`);
-      throw new Error(`Fallback URL construction failed: ${fallbackError.message}`);
+      validationSteps.push(
+        `Fallback: URL validation failed - ${fallbackError.message}`
+      );
+      throw new Error(
+        `Fallback URL construction failed: ${fallbackError.message}`
+      );
     }
   }
 
@@ -1037,25 +1121,29 @@ class NodeAdapter {
    * @returns {Error} - Enhanced error
    */
   _createEnhancedUrlError(originalError, validationSteps, context) {
-    const errorMessage = originalError.message || "Unknown URL construction error";
+    const errorMessage =
+      originalError.message || "Unknown URL construction error";
     const enhancedMessage = [
       `URL construction failed in ${context.adapterType}`,
       `Deployment Platform: ${context.deploymentPlatform}`,
-      `Environment: ${context.isDeployment ? 'deployment' : 'local'}`,
+      `Environment: ${context.isDeployment ? "deployment" : "local"}`,
       `Original URL: "${context.originalUrl}"`,
       `Base URL: "${context.baseUrl}"`,
       `Retry attempt: ${context.retryAttempt}`,
       `Error: ${errorMessage}`,
-      `Validation steps: ${validationSteps.join(' -> ')}`
-    ].join('. ');
+      `Validation steps: ${validationSteps.join(" -> ")}`,
+    ].join(". ");
 
     const enhancedError = new Error(enhancedMessage);
     enhancedError.originalError = originalError;
     enhancedError.validationSteps = validationSteps;
     enhancedError.context = context;
-    enhancedError.deploymentContext = getDeploymentErrorContext(originalError, context);
+    enhancedError.deploymentContext = getDeploymentErrorContext(
+      originalError,
+      context
+    );
     enhancedError.recoveryGuidance = this._getUrlConstructionGuidance(context);
-    
+
     return enhancedError;
   }
 
@@ -1068,34 +1156,44 @@ class NodeAdapter {
    */
   _getUrlConstructionGuidance(context) {
     // Get deployment-specific error context
-    const deploymentContext = getDeploymentErrorContext(new Error('URL construction failed'), context);
-    
+    const deploymentContext = getDeploymentErrorContext(
+      new Error("URL construction failed"),
+      context
+    );
+
     const guidance = {
-      environment: context.isDeployment ? 'deployment' : 'local',
+      environment: context.isDeployment ? "deployment" : "local",
       platform: context.deploymentPlatform,
       commonCauses: [
-        'Invalid base URL configuration',
-        'Malformed endpoint path',
-        'Environment-specific URL handling differences'
+        "Invalid base URL configuration",
+        "Malformed endpoint path",
+        "Environment-specific URL handling differences",
       ],
       recommendedActions: [
-        'Verify baseUrl is properly configured',
-        'Check that endpoint paths are valid',
-        'Ensure URL construction works in both local and deployment environments'
+        "Verify baseUrl is properly configured",
+        "Check that endpoint paths are valid",
+        "Ensure URL construction works in both local and deployment environments",
       ],
-      platformSpecific: deploymentContext.platformGuidance || {}
+      platformSpecific: deploymentContext.platformGuidance || {},
     };
 
     // Add platform-specific guidance
     if (deploymentContext.platformGuidance) {
-      guidance.commonCauses.push(...deploymentContext.platformGuidance.commonIssues);
-      guidance.recommendedActions.push(...deploymentContext.platformGuidance.recommendedActions);
-      guidance.documentationLinks = deploymentContext.platformGuidance.documentationLinks;
+      guidance.commonCauses.push(
+        ...deploymentContext.platformGuidance.commonIssues
+      );
+      guidance.recommendedActions.push(
+        ...deploymentContext.platformGuidance.recommendedActions
+      );
+      guidance.documentationLinks =
+        deploymentContext.platformGuidance.documentationLinks;
     }
 
     if (context.retryAttempt > 0) {
-      guidance.commonCauses.push('Retry mechanism URL context loss');
-      guidance.recommendedActions.push('Ensure retry operations preserve URL construction context');
+      guidance.commonCauses.push("Retry mechanism URL context loss");
+      guidance.recommendedActions.push(
+        "Ensure retry operations preserve URL construction context"
+      );
     }
 
     return guidance;
@@ -1123,14 +1221,17 @@ class NodeAdapter {
    */
   _logUrlConstruction(result, validationSteps, context, finalUrl, error) {
     // Only log in development or when debugging is enabled
-    if (process.env.NODE_ENV === 'development' || process.env.DEBUG_URL_CONSTRUCTION) {
+    if (
+      process.env.NODE_ENV === "development" ||
+      process.env.DEBUG_URL_CONSTRUCTION
+    ) {
       const logData = {
         result,
         adapter: context.adapterType,
         deployment: {
           platform: context.deploymentPlatform,
           isDeployment: context.isDeployment,
-          environment: context.isDeployment ? 'deployment' : 'local'
+          environment: context.isDeployment ? "deployment" : "local",
         },
         originalUrl: context.originalUrl,
         baseUrl: context.baseUrl,
@@ -1140,9 +1241,9 @@ class NodeAdapter {
         platformConfig: {
           requiresAbsoluteUrls: this.platformConfig.requiresAbsoluteUrls,
           urlValidationStrict: this.platformConfig.urlValidationStrict,
-          corsHandling: this.platformConfig.corsHandling
+          corsHandling: this.platformConfig.corsHandling,
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
       if (error) {
@@ -1151,7 +1252,10 @@ class NodeAdapter {
         logData.deploymentContext = error.deploymentContext;
       }
 
-      console.log(`[${context.adapterType}] URL Construction:`, JSON.stringify(logData, null, 2));
+      console.log(
+        `[${context.adapterType}] URL Construction:`,
+        JSON.stringify(logData, null, 2)
+      );
     }
   }
 }
