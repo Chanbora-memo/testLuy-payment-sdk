@@ -69,6 +69,7 @@ test-debugging-monitoring.js
 test-enhanced.js
 debug-output/
 error-logs/
+CLOUDFLARE-TUNNEL-ZERO-TRUST-SUCCESS-SUMMARY.md
 
 # Generated documentation
 docs-generated/
