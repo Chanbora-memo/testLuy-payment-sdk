@@ -1,8 +1,93 @@
+# Dependencies
 node_modules/
-test.js
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.pnp/
+.pnp.js
 
+# Testing
+coverage/
+.nyc_output/
+test-results/
+
+# Build outputs
+dist/
+build/
+*.tgz
+
+# Environment and configuration
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+*.swp
+*.swo
+
+# Debug files
+debug-*.js
+*debug*.js
+
+# Project specific
 repomix.config.json
 repomix-output-sdk.xml
 sdk_codebase.xml
 .repomixignore
 repomix-output.txt
+
+# Runtime and temporary files
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+
+# OS-specific files
+Thumbs.db
+*.DS_Store
+.Spotlight-V100
+.Trashes
+
+# Package manager locks (if not needed in repo)
+# package-lock.json  # Usually keep this for SDKs
+# yarn.lock
+
+# Test and benchmark outputs
+benchmark-results/
+performance-logs/
+*.benchmark
+
+# Development debugging files
+test-debugging-monitoring.js
+test-enhanced.js
+debug-output/
+error-logs/
+CLOUDFLARE-TUNNEL-ZERO-TRUST-SUCCESS-SUMMARY.md
+
+# Generated documentation
+docs-generated/
+api-docs/
+
+# Cloudflare-specific temporary files
+cf-tunnel-*.log
+tunnel-config-*.json
+
+# IDE-specific workspace files
+*.code-workspace
+.history/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# ESLint cache
+.eslintcache
+
+# Prettier cache
+.prettiercache

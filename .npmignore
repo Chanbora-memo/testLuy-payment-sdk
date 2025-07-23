@@ -1,0 +1,80 @@
+# Tests
+tests/
+test-*.js
+*.test.js
+jest.config.js
+coverage/
+
+# Development files
+.github/
+.vscode/
+.idea/
+*.log
+*.tgz
+
+# Debug files
+debug-*.js
+
+# Documentation drafts
+docs-drafts/
+
+# CI configuration
+.travis.yml
+.circleci/
+.gitlab-ci.yml
+appveyor.yml
+
+# Git related
+.git/
+.gitignore
+
+# Project specific
+repomix.config.json
+repomix-output-sdk.xml
+sdk_codebase.xml
+.repomixignore
+repomix-output.txt
+
+# Additional test files not covered
+*.spec.js
+__tests__/
+test-debugging-monitoring.js
+
+# Development configuration
+.eslintrc.*
+.prettierrc.*
+.editorconfig
+nodemon.json
+
+# Documentation that shouldn't be published
+TROUBLESHOOTING.md
+CONTRIBUTING.md
+MIGRATION.md
+CLOUDFLARE-TUNNEL-ZERO-TRUST-SUCCESS-SUMMARY.md
+
+# Development examples (if they shouldn't be published)
+examples/
+
+# Additional build artifacts
+*.map
+*.d.ts.map
+
+# Cloudflare-specific files
+cf-tunnel-*.log
+tunnel-config-*.json
+
+# Security files
+.env.*
+*.pem
+*.key
+*.crt
+
+# Development scripts
+test-enhanced.js
+
+# Editor files
+.history/
+*.code-workspace
+
+# OS files
+Thumbs.db

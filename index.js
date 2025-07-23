@@ -7,6 +7,14 @@ import {
   validateTransactionId,
 } from "./validation.js";
 
+// Import enhanced HTTP components for retry mechanism
+import EnhancedHttpClient from "./http/EnhancedHttpClient.js";
+import ErrorHandler from "./http/ErrorHandler.js";
+import RetryStrategy from "./http/RetryStrategy.js";
+import SmartEndpointRouter from "./http/SmartEndpointRouter.js";
+import CNAMESubdomainHandler from "./http/CNAMESubdomainHandler.js";
+import { RateLimitError, CloudflareError } from "./http/errors/index.js";
+
 // Default retry configuration
 const DEFAULT_RETRY_CONFIG = {
   maxRetries: 3,
@@ -22,6 +30,8 @@ const DEFAULT_RETRY_CONFIG = {
  * @param {string} options.clientId - Your Testluy application client ID.
  * @param {string} options.secretKey - Your Testluy application secret key.
  * @param {string} [options.baseUrl] - The base URL for the Testluy API (defaults to value in config or environment).
+ * @param {string} [options.bypassUrl] - Alternative bypass URL for deployment environments (auto-detected if not provided).
+ * @param {boolean} [options.enableSmartRouting=true] - Enable automatic endpoint selection based on environment.
  * @param {object} [options.retryConfig] - Configuration for request retries on rate limiting.
  * @param {number} [options.retryConfig.maxRetries=3] - Maximum number of retry attempts.
  * @param {number} [options.retryConfig.initialDelayMs=1000] - Initial delay in milliseconds before first retry.
@@ -37,26 +47,37 @@ class TestluyPaymentSDK {
         "TestluyPaymentSDK: Client ID and Secret Key are required."
       );
     }
-    // Ensure baseUrl doesn't end with a slash
-    this.baseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-    if (
-      !this.baseUrl.startsWith("http://") &&
-      !this.baseUrl.startsWith("https://")
-    ) {
-      logger.warn(
-        `TestluyPaymentSDK Warning: Base URL "${this.baseUrl}" might be invalid. Ensure it includes http:// or https://`
-      );
-    }
+    
     this.clientId = clientId;
     this.secretKey = secretKey;
     this.isValidated = false; // State to track if validateCredentials was successful
 
+    // Smart routing configuration
+    this.enableSmartRouting = options.enableSmartRouting !== false; // Default to true
+    this.primaryBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+    this.bypassUrl = options.bypassUrl; // Optional explicit bypass URL
+    this.currentBaseUrl = this.primaryBaseUrl; // Will be updated by smart routing
+
+    if (
+      !this.primaryBaseUrl.startsWith("http://") &&
+      !this.primaryBaseUrl.startsWith("https://")
+    ) {
+      logger.warn(
+        `TestluyPaymentSDK Warning: Base URL "${this.primaryBaseUrl}" might be invalid. Ensure it includes http:// or https://`
+      );
+    }
+
+    // Initialize smart routing components
+    if (this.enableSmartRouting) {
+      this._initializeSmartRouting();
+    }
+
     // Determine if we should use API prefix based on the base URL
     // For api-testluy.paragoniu.app, we don't need the /api prefix since it's already an API domain
-    this.useApiPrefix = !this.baseUrl.includes("api-testluy.paragoniu.app");
+    this.useApiPrefix = !this.currentBaseUrl.includes("api-testluy.paragoniu.app");
 
     logger.info(
-      `TestluyPaymentSDK initialized with baseUrl: ${this.baseUrl}, useApiPrefix: ${this.useApiPrefix}`
+      `TestluyPaymentSDK initialized with primaryBaseUrl: ${this.primaryBaseUrl}, smartRouting: ${this.enableSmartRouting}, useApiPrefix: ${this.useApiPrefix}`
     );
 
     // Set up retry configuration with defaults
@@ -72,6 +93,123 @@ class TestluyPaymentSDK {
       resetAt: null,
       currentPlan: null,
     };
+
+    // Initialize enhanced HTTP client and error handler for retry mechanism
+    this._initializeEnhancedRetryMechanism();
+  }
+
+  /**
+   * Initialize smart routing components for automatic endpoint selection
+   * @private
+   */
+  _initializeSmartRouting() {
+    try {
+      // Initialize CNAME subdomain handler
+      this.cnameHandler = new CNAMESubdomainHandler({
+        mainDomain: this.primaryBaseUrl,
+        subdomainPrefix: 'sdk',
+        testTimeout: 5000
+      });
+
+      // Initialize smart endpoint router
+      this.endpointRouter = new SmartEndpointRouter({
+        primaryEndpoint: this.primaryBaseUrl,
+        bypassEndpoint: this.bypassUrl, // Will be auto-detected if not provided
+        testTimeout: 5000
+      });
+
+      logger.info('TestluyPaymentSDK: Smart routing initialized');
+    } catch (error) {
+      logger.warn(`TestluyPaymentSDK: Smart routing initialization failed: ${error.message}`);
+      // Continue without smart routing
+      this.enableSmartRouting = false;
+    }
+  }
+
+  /**
+   * Select the best endpoint for API requests
+   * @private
+   * @returns {Promise<string>} The selected endpoint URL
+   */
+  async _selectEndpoint() {
+    if (!this.enableSmartRouting) {
+      return this.primaryBaseUrl;
+    }
+
+    try {
+      // If no explicit bypass URL was provided, try to resolve one via CNAME
+      if (!this.bypassUrl && this.cnameHandler) {
+        const resolvedBypass = await this.cnameHandler.resolveBypassEndpoint();
+        if (resolvedBypass) {
+          this.bypassUrl = resolvedBypass;
+          // Update the router with the resolved bypass endpoint
+          this.endpointRouter.bypassEndpoint = resolvedBypass;
+          logger.info(`TestluyPaymentSDK: Auto-detected bypass endpoint: ${resolvedBypass}`);
+        }
+      }
+
+      // Use the smart router to select the best endpoint
+      const selectedEndpoint = await this.endpointRouter.selectEndpoint();
+      
+      // Update current base URL and API prefix logic
+      this.currentBaseUrl = selectedEndpoint;
+      this.useApiPrefix = !this.currentBaseUrl.includes("api-testluy.paragoniu.app");
+      
+      logger.debug(`TestluyPaymentSDK: Selected endpoint: ${selectedEndpoint}`);
+      return selectedEndpoint;
+
+    } catch (error) {
+      logger.warn(`TestluyPaymentSDK: Endpoint selection failed: ${error.message}, using primary`);
+      return this.primaryBaseUrl;
+    }
+  }
+
+  /**
+   * Initializes the enhanced HTTP client and error handler for retry mechanism
+   * @private
+   */
+  _initializeEnhancedRetryMechanism() {
+    // Create retry strategy
+    this.retryStrategy = new RetryStrategy({
+      maxRetries: this.retryConfig.maxRetries,
+      baseDelay: this.retryConfig.initialDelayMs,
+      maxDelay: this.retryConfig.maxDelayMs,
+      backoffFactor: this.retryConfig.backoffFactor,
+    });
+
+    // Create enhanced HTTP client
+    this.enhancedHttpClient = new EnhancedHttpClient({
+      baseUrl: this.currentBaseUrl,
+      timeout: 30000, // 30 seconds
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+
+    // Create error handler with HTTP adapter reference for retry operations
+    this.errorHandler = new ErrorHandler({
+      retryStrategy: this.retryStrategy,
+      httpAdapter: this.enhancedHttpClient, // Pass HTTP client reference for retry operations
+      onError: (error) => {
+        logger.error(`TestluyPaymentSDK: Request error: ${error.message}`);
+      },
+      onRetry: ({ attempt, delay }) => {
+        logger.warn(
+          `TestluyPaymentSDK: Retrying request (${attempt}/${this.retryConfig.maxRetries}) after ${delay}ms`
+        );
+      },
+      onRecovery: () => {
+        logger.info("TestluyPaymentSDK: Request recovered successfully");
+      },
+    });
+
+    // Add error interceptor to enhanced HTTP client
+    this.enhancedHttpClient.addErrorInterceptor(
+      this.errorHandler.createErrorInterceptor()
+    );
+
+    logger.info("TestluyPaymentSDK: Enhanced retry mechanism initialized");
   }
 
   /**
@@ -178,7 +316,212 @@ class TestluyPaymentSDK {
   }
 
   /**
+   * Makes an API request using the enhanced HTTP client with retry mechanism
+   * @private
+   * @param {string} method - HTTP method (GET, POST, etc.).
+   * @param {string} path - API endpoint path.
+   * @param {object} [body={}] - Request body for POST/PUT requests.
+   * @returns {Promise<object>} The API response data.
+   * @throws {Error} If the request fails.
+   */
+  async _makeRequest(method, path, body = {}) {
+    try {
+      // Validate path before making the request
+      if (!path) {
+        throw new Error("Invalid API path: path cannot be empty");
+      }
+
+      // Validate that the path is properly formatted
+      if (!path.startsWith("/")) {
+        logger.warn(
+          `TestluyPaymentSDK: API path "${path}" doesn't start with a slash, adding one`
+        );
+        path = `/${path}`;
+      }
+
+      // Select the best endpoint for this request
+      const selectedBaseUrl = await this._selectEndpoint();
+      
+      // Update HTTP client base URL if it changed
+      if (this.enhancedHttpClient.config.baseUrl !== selectedBaseUrl) {
+        this.enhancedHttpClient.config.baseUrl = selectedBaseUrl;
+        logger.debug(`TestluyPaymentSDK: Updated HTTP client base URL to: ${selectedBaseUrl}`);
+      }
+
+      // Ensure the path includes the /api/ prefix if useApiPrefix is true
+      if (this.useApiPrefix && !path.includes("/api/")) {
+        logger.warn(
+          `TestluyPaymentSDK: API path "${path}" is missing /api/ prefix, it may not work correctly`
+        );
+      }
+
+      // Create retry context for URL validation
+      const retryContext = {
+        originalUrl: `${selectedBaseUrl}${path}`,
+        baseUrl: selectedBaseUrl,
+        primaryBaseUrl: this.primaryBaseUrl,
+        bypassUrl: this.bypassUrl,
+        endpoint: path,
+        method: method,
+        timestamp: new Date().toISOString(),
+        useApiPrefix: this.useApiPrefix,
+        smartRoutingEnabled: this.enableSmartRouting,
+      };
+
+      // Validate that the combination of baseUrl and path will create a valid URL
+      try {
+        const testUrl = new URL(path, selectedBaseUrl);
+        logger.debug(
+          `TestluyPaymentSDK: URL validation passed for: ${testUrl.toString()}`
+        );
+        retryContext.validatedUrl = testUrl.toString();
+        retryContext.urlValidationSteps = [
+          `Selected Base URL: "${selectedBaseUrl}"`,
+          `Path: "${path}"`,
+          `Combined URL: "${testUrl.toString()}"`,
+          "URL validation: SUCCESS"
+        ];
+      } catch (urlValidationError) {
+        logger.error(
+          `TestluyPaymentSDK: URL validation failed for baseUrl="${selectedBaseUrl}" and path="${path}": ${urlValidationError.message}`
+        );
+        
+        retryContext.urlValidationSteps = [
+          `Selected Base URL: "${selectedBaseUrl}"`,
+          `Path: "${path}"`,
+          `URL validation: FAILED - ${urlValidationError.message}`
+        ];
+        
+        const enhancedError = new Error(
+          `Invalid URL combination: baseUrl="${selectedBaseUrl}" and path="${path}". ${urlValidationError.message}`
+        );
+        enhancedError.retryContext = retryContext;
+        enhancedError.urlConstructionSteps = retryContext.urlValidationSteps;
+        throw enhancedError;
+      }
+
+      // Add authentication headers using enhanced method
+      const authHeaders = await this._getAuthHeaders(method, path, body);
+
+      // Make the API request using the enhanced HTTP client
+      const response = await this.enhancedHttpClient.request({
+        method: method,
+        url: path,
+        data: method !== "GET" ? body : undefined,
+        headers: authHeaders,
+        retryContext: retryContext, // Pass retry context for debugging
+      });
+
+      // Update rate limit info from headers if available
+      if (response.headers) {
+        if (response.headers["x-ratelimit-limit"]) {
+          this.rateLimitInfo.limit = parseInt(
+            response.headers["x-ratelimit-limit"],
+            10
+          );
+        }
+        if (response.headers["x-ratelimit-remaining"]) {
+          this.rateLimitInfo.remaining = parseInt(
+            response.headers["x-ratelimit-remaining"],
+            10
+          );
+        }
+        if (response.headers["x-ratelimit-reset"]) {
+          this.rateLimitInfo.resetAt = new Date(
+            parseInt(response.headers["x-ratelimit-reset"], 10) * 1000
+          );
+        }
+      }
+
+      return response;
+    } catch (error) {
+      // Handle URL construction errors with enhanced error reporting
+      if (
+        error.message &&
+        (error.message.includes("Invalid URL") ||
+          error.message.includes("Failed to construct") ||
+          error.message.includes("URL cannot be null"))
+      ) {
+        logger.error(
+          `TestluyPaymentSDK: URL construction error: ${error.message}`
+        );
+        logger.error(
+          `TestluyPaymentSDK: Attempted path: "${path}", baseUrl: "${this.baseUrl}"`
+        );
+        
+        // Add enhanced error context
+        error.errorContext = {
+          path,
+          baseUrl: selectedBaseUrl || this.currentBaseUrl,
+          primaryBaseUrl: this.primaryBaseUrl,
+          bypassUrl: this.bypassUrl,
+          method,
+          useApiPrefix: this.useApiPrefix,
+          smartRoutingEnabled: this.enableSmartRouting,
+          retryContext: error.retryContext,
+          urlConstructionSteps: error.urlConstructionSteps || [],
+        };
+        
+        throw new Error(
+          `URL construction error: ${error.message}. Please check your baseUrl and endpoint path.`
+        );
+      }
+
+      // Handle specific error types with enhanced error reporting
+      if (error instanceof RateLimitError) {
+        const guidance = error.getRetryGuidance();
+        const errorMessage = `Rate limit exceeded. ${guidance.recommendedAction}`;
+
+        // Create a more informative error
+        const rateLimitError = new Error(errorMessage);
+        rateLimitError.isRateLimitError = true;
+        rateLimitError.rateLimitInfo = { ...this.rateLimitInfo };
+        rateLimitError.retryAfter = guidance.retryAfter;
+        rateLimitError.errorContext = {
+          path,
+          method,
+          retryContext: error.retryContext,
+        };
+        throw rateLimitError;
+      } else if (error instanceof CloudflareError) {
+        const guidance = error.getChallengeGuidance();
+        const errorMessage = `Cloudflare protection encountered. ${guidance.recommendedAction}`;
+
+        // Create a more informative error
+        const cloudflareError = new Error(errorMessage);
+        cloudflareError.isCloudflareError = true;
+        cloudflareError.challengeType = guidance.challengeType;
+        cloudflareError.errorContext = {
+          path,
+          method,
+          retryContext: error.retryContext,
+        };
+        throw cloudflareError;
+      }
+
+      // For other errors, format and throw with enhanced context
+      const errorMessage = error.message || "Unknown error";
+      logger.error(`TestluyPaymentSDK: API request failed: ${errorMessage}`);
+      
+      // Add error context for debugging
+      error.errorContext = {
+        path,
+        method,
+        baseUrl: this.currentBaseUrl,
+        primaryBaseUrl: this.primaryBaseUrl,
+        bypassUrl: this.bypassUrl,
+        smartRoutingEnabled: this.enableSmartRouting,
+        retryContext: error.retryContext,
+        urlConstructionSteps: error.urlConstructionSteps || [],
+      };
+      
+      throw new Error(`API request failed: ${errorMessage}`);
+    }
+  }
+
+  /**
    * Makes an API request with automatic retry on rate limit errors.
+   * @deprecated Use _makeRequest instead for enhanced retry mechanism
    * @private
    * @param {string} method - HTTP method (GET, POST, etc.).
    * @param {string} path - API endpoint path.
@@ -300,6 +643,38 @@ class TestluyPaymentSDK {
   }
 
   /**
+   * Get current routing information for debugging
+   * @returns {object} Routing information
+   */
+  getRoutingInfo() {
+    return {
+      smartRoutingEnabled: this.enableSmartRouting,
+      primaryBaseUrl: this.primaryBaseUrl,
+      currentBaseUrl: this.currentBaseUrl,
+      bypassUrl: this.bypassUrl,
+      useApiPrefix: this.useApiPrefix,
+      selectedEndpoint: this.endpointRouter?.getCurrentEndpoint(),
+      environmentInfo: this.endpointRouter?.environmentDetector?.getEnvironmentInfo(),
+      cnameStats: this.cnameHandler?.getCacheStats()
+    };
+  }
+
+  /**
+   * Force refresh of endpoint selection
+   * @returns {Promise<string>} The newly selected endpoint
+   */
+  async refreshEndpoint() {
+    if (this.enableSmartRouting && this.endpointRouter) {
+      this.endpointRouter.invalidateCache();
+      if (this.cnameHandler) {
+        this.cnameHandler.clearCache();
+      }
+      return await this._selectEndpoint();
+    }
+    return this.primaryBaseUrl;
+  }
+
+  /**
    * Performs an initial validation check with the API using the provided credentials.
    * Sets an internal flag `isValidated` upon success. Recommended to call before other methods.
    * @async
@@ -370,8 +745,8 @@ class TestluyPaymentSDK {
         ...(backUrl && { back_url: backUrl }),
       };
 
-      // Use the retry mechanism for this request
-      const responseData = await this._makeRequestWithRetry("POST", path, body);
+      // Use the enhanced retry mechanism for this request
+      const responseData = await this._makeRequest("POST", path, body);
 
       const { payment_url, transaction_id } = responseData;
 
@@ -394,10 +769,11 @@ class TestluyPaymentSDK {
         throw new Error(`Failed to initiate payment: ${error.message}`);
       }
 
-      // If it's already a formatted error from _makeRequestWithRetry, just rethrow with context
+      // If it's already a formatted error from _makeRequest, just rethrow with context
       if (
         error.message.startsWith("API request failed:") ||
-        error.isRateLimitError
+        error.isRateLimitError ||
+        error.isCloudflareError
       ) {
         throw new Error(`Failed to initiate payment: ${error.message}`);
       }
@@ -426,8 +802,8 @@ class TestluyPaymentSDK {
         `payment-simulator/status/${transactionId}`
       );
 
-      // Use the retry mechanism for this request
-      const responseData = await this._makeRequestWithRetry("GET", path);
+      // Use the enhanced retry mechanism for this request
+      const responseData = await this._makeRequest("GET", path);
 
       // Verify response structure
       if (!responseData || !responseData.status) {
@@ -445,10 +821,11 @@ class TestluyPaymentSDK {
         throw new Error(`Failed to get payment status: ${error.message}`);
       }
 
-      // If it's already a formatted error from _makeRequestWithRetry, just rethrow with context
+      // If it's already a formatted error from _makeRequest, just rethrow with context
       if (
         error.message.startsWith("API request failed:") ||
-        error.isRateLimitError
+        error.isRateLimitError ||
+        error.isCloudflareError
       ) {
         throw new Error(`Failed to get payment status: ${error.message}`);
       }
@@ -473,8 +850,8 @@ class TestluyPaymentSDK {
       const path = this._getApiPath("validate-credentials");
       const body = {}; // Validation endpoint expects an empty body
 
-      // Use the retry mechanism for this request
-      const responseData = await this._makeRequestWithRetry("POST", path, body);
+      // Use the enhanced retry mechanism for this request
+      const responseData = await this._makeRequest("POST", path, body);
 
       // Ensure the response has the expected structure
       if (typeof responseData?.isValid !== "boolean") {
@@ -497,10 +874,11 @@ class TestluyPaymentSDK {
 
       return true; // Only return true if explicitly { isValid: true }
     } catch (error) {
-      // If it's already a formatted error from _makeRequestWithRetry, just rethrow
+      // If it's already a formatted error from _makeRequest, just rethrow
       if (
         error.message.startsWith("API request failed:") ||
-        error.isRateLimitError
+        error.isRateLimitError ||
+        error.isCloudflareError
       ) {
         throw error;
       }

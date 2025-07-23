@@ -1,6 +1,6 @@
 const defaultConfig = {
-  // Only default Base URL here if needed
-  baseUrl: process.env.TESTLUY_BASE_URL || "https://testluy.tech",
+  // Default to api-testluy.paragoniu.app as the standard base URL
+  baseUrl: process.env.TESTLUY_BASE_URL || "https://api-testluy.paragoniu.app",
 };
 
 export const getConfig = (options = {}) => {
